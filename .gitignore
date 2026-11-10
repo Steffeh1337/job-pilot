@@ -1,0 +1,21 @@
+# Local data and secrets
+.env
+*.db
+*.db-shm
+*.db-wal
+backend/data/
+backend/config.yaml
+backend/bin/
+
+# Go
+*.test
+*.out
+
+# Node (web/ and extension/ come later)
+node_modules/
+dist/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

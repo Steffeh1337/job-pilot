@@ -1,0 +1,40 @@
+# Copy to config.yaml (git-ignored) and edit. Anything you leave out keeps the
+# default from internal/config/config.go.
+
+db_path: data/jobpilot.db
+http_addr: 127.0.0.1:8080
+
+# How often the scheduler wakes up. Each source also has its own minimum
+# interval (most boards only refresh hourly), so waking every 15 minutes does
+# not mean every board is hit every 15 minutes.
+tick: 15m
+
+# Appended to the User-Agent so API owners can reach you if needed.
+contact: ""
+
+# Naming a source here replaces its whole entry, so keep `enabled: true`
+# when you only want to change the interval.
+sources:
+  remoteok:       {enabled: true}                  # default interval 30m
+  remotive:       {enabled: true}                  # 6h; Remotive asks for sparing use
+  himalayas:      {enabled: true}                  # 1h
+  weworkremotely: {enabled: true}                  # 1h
+  jobicy:         {enabled: true}                  # 1h
+  arbeitnow:      {enabled: true}                  # 1h; mostly German on-site jobs
+  hackernews:     {enabled: true}                  # 6h; Who is hiring + Freelancer threads
+  greenhouse:     {enabled: true}                  # 1h, per company below
+  lever:          {enabled: true}
+  ashby:          {enabled: true}
+
+# Company job boards (the token is the name in the board's public URL).
+# Every token below was checked to exist. Add your 500 target companies here.
+boards:
+  greenhouse: [gitlab, cloudflare, datadog, stripe, figma, vercel, mongodb, elastic]
+  lever: [palantir, spotify]
+  ashby: [ashby, linear, ramp, openai, notion]
+
+# The funnel stages. All are regular expressions (Go/RE2 syntax). After editing
+# them, run `server reclassify` to re-judge everything already collected.
+# filter:
+#   region_allow: ...
+#   stack: '(?i:\b(golang|typescript|react)\b)|\bGo\b'

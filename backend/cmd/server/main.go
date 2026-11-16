@@ -65,7 +65,7 @@ func run() error {
 
 	sched := &scheduler.Scheduler{
 		Sources:  source.Build(cfg, source.NewClient(cfg.Contact)),
-		Pipeline: pipe, Store: st, Tick: cfg.Tick, Log: log,
+		Pipeline: pipe, Store: st, Tick: cfg.Tick, Log: log, Ctx: ctx,
 	}
 
 	switch cmd {
@@ -95,7 +95,11 @@ func run() error {
 }
 
 func serve(ctx context.Context, cfg config.Config, st *store.Store, sched *scheduler.Scheduler, log *slog.Logger) error {
-	api := &httpapi.API{Store: st, Log: log}
+	intervals := map[string]time.Duration{}
+	for _, src := range sched.Sources {
+		intervals[src.Name()] = src.Interval()
+	}
+	api := &httpapi.API{Store: st, Log: log, Intervals: intervals, WebDir: cfg.WebDir, Refresher: sched}
 	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: api.Handler(), ReadHeaderTimeout: 10 * time.Second}
 
 	go sched.Run(ctx)

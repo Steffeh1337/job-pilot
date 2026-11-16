@@ -56,6 +56,9 @@ type Job struct {
 	Stage        Stage
 	B2B          bool
 	RejectReason string
+	// RegionVerified is true when an allowed region was positively found,
+	// false when the job merely wasn't ruled out (no location given).
+	RegionVerified bool
 }
 
 var nonAlnum = regexp.MustCompile(`[^a-z0-9]+`)

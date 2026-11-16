@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS jobs (
 	stage           INTEGER NOT NULL,
 	b2b             INTEGER NOT NULL,
 	reject_reason   TEXT NOT NULL,
+	region_verified INTEGER NOT NULL DEFAULT 0,
 	UNIQUE (source, external_id)
 );
 CREATE INDEX IF NOT EXISTS jobs_fingerprint ON jobs (fingerprint);
@@ -78,7 +79,26 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("migrate: %w", err)
 	}
+	if err := migrate(db); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("migrate: %w", err)
+	}
 	return &Store{db: db}, nil
+}
+
+// migrate upgrades databases created by earlier versions. region_verified was
+// added after the first release; existing rows get 0 until `server
+// reclassify` recomputes it.
+func migrate(db *sql.DB) error {
+	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('jobs') WHERE name = 'region_verified'`).Scan(&n); err != nil {
+		return err
+	}
+	if n == 0 {
+		_, err := db.Exec(`ALTER TABLE jobs ADD COLUMN region_verified INTEGER NOT NULL DEFAULT 0`)
+		return err
+	}
+	return nil
 }
 
 func (s *Store) Close() error { return s.db.Close() }
@@ -115,11 +135,11 @@ func (s *Store) Insert(ctx context.Context, j *domain.Job) error {
 	res, err := s.db.ExecContext(ctx, `
 INSERT INTO jobs (source, external_id, url, title, company, location, regions, remote,
 	employment_type, tags, description, salary_min, salary_max, currency, posted_at,
-	first_seen_at, last_seen_at, fingerprint, dup_of, stage, b2b, reject_reason)
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+	first_seen_at, last_seen_at, fingerprint, dup_of, stage, b2b, reject_reason, region_verified)
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		j.Source, j.ExternalID, j.URL, j.Title, j.Company, j.Location, string(regions), b2i(j.Remote),
 		j.EmploymentType, string(tags), j.Description, j.SalaryMin, j.SalaryMax, j.Currency, j.PostedAt.Unix(),
-		j.FirstSeenAt.Unix(), j.LastSeenAt.Unix(), j.Fingerprint, j.DupOf, int(j.Stage), b2i(j.B2B), j.RejectReason)
+		j.FirstSeenAt.Unix(), j.LastSeenAt.Unix(), j.Fingerprint, j.DupOf, int(j.Stage), b2i(j.B2B), j.RejectReason, b2i(j.RegionVerified))
 	if err != nil {
 		return err
 	}
@@ -130,32 +150,32 @@ VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 // UpdateClassification stores a re-run of the filters.
 func (s *Store) UpdateClassification(ctx context.Context, j *domain.Job) error {
 	_, err := s.db.ExecContext(ctx,
-		`UPDATE jobs SET stage = ?, b2b = ?, reject_reason = ? WHERE id = ?`,
-		int(j.Stage), b2i(j.B2B), j.RejectReason, j.ID)
+		`UPDATE jobs SET stage = ?, b2b = ?, reject_reason = ?, region_verified = ? WHERE id = ?`,
+		int(j.Stage), b2i(j.B2B), j.RejectReason, b2i(j.RegionVerified), j.ID)
 	return err
 }
 
 const jobCols = `id, source, external_id, url, title, company, location, regions, remote,
 	employment_type, tags, description, salary_min, salary_max, currency, posted_at,
-	first_seen_at, last_seen_at, fingerprint, dup_of, stage, b2b, reject_reason`
+	first_seen_at, last_seen_at, fingerprint, dup_of, stage, b2b, reject_reason, region_verified`
 
 func scanJob(sc interface{ Scan(...any) error }) (*domain.Job, error) {
 	var (
 		j                           domain.Job
 		regions, tags               string
-		remote, b2b                 int
+		remote, b2b, verified       int
 		posted, firstSeen, lastSeen int64
 		stage                       int
 	)
 	err := sc.Scan(&j.ID, &j.Source, &j.ExternalID, &j.URL, &j.Title, &j.Company, &j.Location, &regions, &remote,
 		&j.EmploymentType, &tags, &j.Description, &j.SalaryMin, &j.SalaryMax, &j.Currency, &posted,
-		&firstSeen, &lastSeen, &j.Fingerprint, &j.DupOf, &stage, &b2b, &j.RejectReason)
+		&firstSeen, &lastSeen, &j.Fingerprint, &j.DupOf, &stage, &b2b, &j.RejectReason, &verified)
 	if err != nil {
 		return nil, err
 	}
 	_ = json.Unmarshal([]byte(regions), &j.Regions)
 	_ = json.Unmarshal([]byte(tags), &j.Tags)
-	j.Remote, j.B2B, j.Stage = remote != 0, b2b != 0, domain.Stage(stage)
+	j.Remote, j.B2B, j.Stage, j.RegionVerified = remote != 0, b2b != 0, domain.Stage(stage), verified != 0
 	j.PostedAt, j.FirstSeenAt, j.LastSeenAt = time.Unix(posted, 0), time.Unix(firstSeen, 0), time.Unix(lastSeen, 0)
 	return &j, nil
 }

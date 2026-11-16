@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Steffeh1337/job-pilot/backend/internal/config"
 	"github.com/Steffeh1337/job-pilot/backend/internal/domain"
@@ -161,6 +162,23 @@ func splitList(s string) []string {
 		}
 	}
 	return out
+}
+
+// fixMojibake repairs text whose UTF-8 bytes were read as Latin-1 ("Weâ\u0080\u0099re"
+// instead of "We’re"), which RemoteOK's API does. Text that isn't in that
+// state, including genuine Latin-1 such as "café", is returned unchanged.
+func fixMojibake(s string) string {
+	b := make([]byte, 0, len(s))
+	for _, r := range s {
+		if r > 0xFF {
+			return s // already real Unicode
+		}
+		b = append(b, byte(r))
+	}
+	if string(b) == s || !utf8.Valid(b) {
+		return s
+	}
+	return string(b)
 }
 
 var (

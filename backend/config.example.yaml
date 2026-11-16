@@ -4,6 +4,9 @@
 db_path: data/jobpilot.db
 http_addr: 127.0.0.1:8080
 
+# The built dashboard (`make web-build`); served at / when it exists.
+web_dir: ../web/dist
+
 # How often the scheduler wakes up. Each source also has its own minimum
 # interval (most boards only refresh hourly), so waking every 15 minutes does
 # not mean every board is hit every 15 minutes.
@@ -20,7 +23,7 @@ sources:
   himalayas:      {enabled: true}                  # 1h
   weworkremotely: {enabled: true}                  # 1h
   jobicy:         {enabled: true}                  # 1h
-  arbeitnow:      {enabled: true}                  # 1h; mostly German on-site jobs
+  arbeitnow:      {enabled: false}                 # off: 0 of 286 jobs passed the region stage
   hackernews:     {enabled: true}                  # 6h; Who is hiring + Freelancer threads
   greenhouse:     {enabled: true}                  # 1h, per company below
   lever:          {enabled: true}

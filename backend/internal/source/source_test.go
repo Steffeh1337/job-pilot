@@ -61,6 +61,35 @@ func TestStripHTML(t *testing.T) {
 	}
 }
 
+func TestFixMojibake(t *testing.T) {
+	tests := []struct{ in, want string }{
+		{"Sothebyâ\u0080\u0099s", "Sotheby’s"},
+		{"Weâ\u0080\u0099re building", "We’re building"},
+		{"Ã\u0089cole", "École"},
+		{"plain ascii", "plain ascii"},
+		{"café", "café"},   // real Latin-1, not mojibake
+		{"We’re", "We’re"}, // already correct Unicode
+		{"日本語", "日本語"},     // beyond Latin-1
+		{"", ""},
+	}
+	for _, tt := range tests {
+		if got := fixMojibake(tt.in); got != tt.want {
+			t.Errorf("fixMojibake(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
+func TestParseRemoteOKRepairsEncoding(t *testing.T) {
+	body := `[{"legal":"x"},{"id":"1","position":"Senior Engineer","company":"Sothebyâ\u0080\u0099s","tags":["go"],"url":"u","description":"<p>Weâ\u0080\u0099re hiring</p>","epoch":1}]`
+	jobs, err := parseRemoteOK([]byte(body))
+	if err != nil || len(jobs) != 1 {
+		t.Fatalf("got %d jobs, err %v", len(jobs), err)
+	}
+	if jobs[0].Company != "Sotheby’s" || jobs[0].Description != "We’re hiring" {
+		t.Errorf("not repaired: %q / %q", jobs[0].Company, jobs[0].Description)
+	}
+}
+
 func TestParseRemoteOK(t *testing.T) {
 	jobs, err := parseRemoteOK(fixture(t, "remoteok.json"))
 	jobs = mustParse(t, jobs, err, 3) // element 0 is the legal notice

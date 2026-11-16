@@ -51,10 +51,16 @@ func parseRemoteOK(body []byte) ([]*domain.Job, error) {
 		if r.ID == "" || r.Position == "" {
 			continue
 		}
+		tags := make([]string, len(r.Tags))
+		for i, t := range r.Tags {
+			tags[i] = fixMojibake(t)
+		}
+		// The API double-encodes its text, so repair it before stripping markup.
 		out = append(out, &domain.Job{
 			Source: "remoteok", ExternalID: string(r.ID), URL: r.URL,
-			Title: r.Position, Company: r.Company, Location: r.Location, Remote: true,
-			Tags: r.Tags, Description: StripHTML(r.Description),
+			Title: fixMojibake(r.Position), Company: fixMojibake(r.Company),
+			Location: fixMojibake(r.Location), Remote: true,
+			Tags: tags, Description: StripHTML(fixMojibake(r.Description)),
 			PostedAt: time.Unix(r.Epoch, 0),
 		})
 	}

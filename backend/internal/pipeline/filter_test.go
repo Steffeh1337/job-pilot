@@ -130,6 +130,71 @@ func TestClassify(t *testing.T) {
 			wantStage: domain.StageSenior, wantB2B: true,
 		},
 		{
+			name:      "description restricts to Latin America (no structured location)",
+			job:       domain.Job{Title: "Senior Go Engineer", Remote: true, Description: "Remote role based in Latin America. Must overlap 6 hours."},
+			wantStage: domain.StageUnique, wantReason: "region",
+		},
+		{
+			name:      "description requires US residence",
+			job:       domain.Job{Title: "Senior Go Engineer", Remote: true, Description: "You must be located in the US to apply."},
+			wantStage: domain.StageUnique, wantReason: "region",
+		},
+		{
+			name:      "description requires US work authorisation",
+			job:       domain.Job{Title: "Senior Go Engineer", Remote: true, Location: "Remote", Description: "Candidates must be authorized to work in the United States."},
+			wantStage: domain.StageUnique, wantReason: "region",
+		},
+		{
+			name:      "description says US only",
+			job:       domain.Job{Title: "Senior Go Engineer", Remote: true, Description: "Open to US only candidates."},
+			wantStage: domain.StageUnique, wantReason: "region",
+		},
+		{
+			name:      "description says remote within Germany",
+			job:       domain.Job{Title: "Senior Go Engineer", Remote: true, Description: "Mostly remote (within Germany), with monthly meetups."},
+			wantStage: domain.StageUnique, wantReason: "region",
+		},
+		{
+			name:      "anywhere in the US is a restriction, not worldwide",
+			job:       domain.Job{Title: "Senior Go Engineer", Remote: true, Description: "This is a remote position that can be located anywhere in the US or Canada."},
+			wantStage: domain.StageUnique, wantReason: "region",
+		},
+		{
+			name:      "phrase continuing with an allowed region is kept",
+			job:       domain.Job{Title: "Senior Go Engineer", Remote: true, Description: "You must be located in the US or Europe. Go."},
+			wantStage: domain.StageSenior,
+		},
+		{
+			name:      "phrase continuing with another disallowed region is dropped",
+			job:       domain.Job{Title: "Senior Go Engineer", Remote: true, Description: "You must be located in Canada or the US. Go."},
+			wantStage: domain.StageUnique, wantReason: "region",
+		},
+		{
+			name:      "description offering Europe or the US is allowed",
+			job:       domain.Job{Title: "Senior Go Engineer", Remote: true, Description: "Remote in Europe or the US. Go and TypeScript."},
+			wantStage: domain.StageSenior,
+		},
+		{
+			name:      "company being UK-based does not restrict candidates",
+			job:       domain.Job{Title: "Senior Go Engineer", Remote: true, Description: "We are a UK-based company hiring worldwide. Go."},
+			wantStage: domain.StageSenior,
+		},
+		{
+			name:      "ordinary use of 'us' is not a restriction",
+			job:       domain.Job{Title: "Senior Go Engineer", Remote: true, Description: "Join us. Work with us in a remote team. Go."},
+			wantStage: domain.StageSenior,
+		},
+		{
+			name:      "explicit allowed location wins over description phrases",
+			job:       domain.Job{Title: "Senior Go Engineer", Remote: true, Location: "Anywhere in the World", Description: "Our US only legacy team is being retired. Go."},
+			wantStage: domain.StageSenior,
+		},
+		{
+			name:      "structured regions ignore the description",
+			job:       domain.Job{Title: "Senior Go Engineer", Remote: true, Regions: []string{"Worldwide"}, Description: "Go. Some roles are US only."},
+			wantStage: domain.StageSenior,
+		},
+		{
 			name:      "equal-opportunity boilerplate about contractors is not B2B",
 			job:       domain.Job{Title: "Senior Go Engineer", Remote: true, Regions: []string{"Worldwide"}, Description: "We value all employees and contractors equally."},
 			wantStage: domain.StageSenior,
@@ -224,6 +289,31 @@ func TestIsB2B(t *testing.T) {
 			j := &domain.Job{Title: tt.title, Description: tt.desc, EmploymentType: tt.etype}
 			if got := f.isB2B(j); got != tt.want {
 				t.Errorf("isB2B = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRegionVerified(t *testing.T) {
+	tests := []struct {
+		name string
+		job  domain.Job
+		want bool
+	}{
+		{"structured allowed region", domain.Job{Regions: []string{"Worldwide"}}, true},
+		{"explicit location", domain.Job{Location: "Anywhere in the World"}, true},
+		{"bare Remote is only not-ruled-out", domain.Job{Location: "Remote"}, false},
+		{"no location at all", domain.Job{}, false},
+		{"rejected job is never verified", domain.Job{Regions: []string{"USA"}}, false},
+	}
+	f := testFilter(t)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			j := tt.job
+			j.Title, j.Remote, j.Description = "Senior Go Engineer", true, "Go"
+			f.Classify(&j)
+			if j.RegionVerified != tt.want {
+				t.Errorf("RegionVerified = %v, want %v (stage %v)", j.RegionVerified, tt.want, j.Stage)
 			}
 		})
 	}

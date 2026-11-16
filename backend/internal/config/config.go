@@ -4,15 +4,18 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	DBPath   string        `yaml:"db_path"`
-	HTTPAddr string        `yaml:"http_addr"`
-	Tick     time.Duration `yaml:"tick"`
+	DBPath   string `yaml:"db_path"`
+	HTTPAddr string `yaml:"http_addr"`
+	// WebDir is the built dashboard (web/dist); served at "/" if it exists.
+	WebDir string        `yaml:"web_dir"`
+	Tick   time.Duration `yaml:"tick"`
 	// Contact is appended to the User-Agent so API owners can reach you.
 	Contact string `yaml:"contact"`
 
@@ -40,7 +43,11 @@ type Filter struct {
 	RegionAllow string `yaml:"region_allow"`
 	// RegionDeny matches location text that clearly excludes it; only used for
 	// free-text locations where nothing in RegionAllow matched.
-	RegionDeny       string `yaml:"region_deny"`
+	RegionDeny string `yaml:"region_deny"`
+	// DescriptionDeny matches restriction phrases in the description ("must be
+	// located in the US"). It is only consulted for jobs whose source gave no
+	// structured location, such as RemoteOK.
+	DescriptionDeny  string `yaml:"description_deny"`
 	TitleInclude     string `yaml:"title_include"`
 	TitleExclude     string `yaml:"title_exclude"`
 	Stack            string `yaml:"stack"`
@@ -55,6 +62,24 @@ type Filter struct {
 	// B2BTitle matches a title that states the engagement ("(Contract)").
 	B2BTitle string `yaml:"b2b_title"`
 }
+
+// countries are the places whose mention in a restriction phrase rules the
+// candidate out. US and UK stay case-sensitive so "join us" never matches.
+const countries = `(?:(?-i:US|USA|UK)|u\.s\.|united states|canada|latam|latin america|united kingdom|germany|france|spain|italy|netherlands|poland|india|brazil|mexico|australia|apac|north america)`
+
+// descriptionDeny matches phrasing that restricts who may apply:
+// "US only", "US-based candidates", "must be located in Canada", "authorized
+// to work in the United States", "remote role based in Latin America",
+// "Remote (within Germany)", "remote work from the US".
+var descriptionDeny = strings.ReplaceAll(`(?i)\b(?:`+
+	`{C}[- ]?(?:only|residents?|citizens?)\b`+
+	`|{C}[- ]based\s+(?:candidates?|applicants?|employees?|engineers?|developers?|contractors?)\b`+
+	`|(?:must|need to|required to|have to|should|can|may)\s+(?:be\s+)?(?:located|based|reside|residing|living|live|work|working)\s+(?:anywhere\s+)?(?:in|from|within)\s+(?:the\s+)?{C}\b`+
+	`|(?:role|position)\s+(?:is\s+)?(?:based|located)\s+(?:in|within)\s+(?:the\s+)?{C}\b`+
+	`|(?:authori[sz]ed|eligible|legally entitled)\s+to\s+work\s+(?:in|within)\s+(?:the\s+)?{C}\b`+
+	`|remote\s*\(\s*(?:within\s+)?(?:the\s+)?{C}\s*\)`+
+	`|remote\b[^.\n]{0,30}?\b(?:within|in|from)\s+(?:the\s+)?{C}\b`+
+	`)`, "{C}", countries)
 
 // b2bIgnore blanks out text that mentions contracts or B2B without saying
 // anything about how the candidate would be engaged.
@@ -95,6 +120,7 @@ func Default() Config {
 	return Config{
 		DBPath:   "data/jobpilot.db",
 		HTTPAddr: "127.0.0.1:8080",
+		WebDir:   "../web/dist",
 		Tick:     15 * time.Minute,
 		Sources: map[string]SourceConfig{
 			"remoteok":       on,
@@ -102,16 +128,19 @@ func Default() Config {
 			"himalayas":      on,
 			"weworkremotely": on,
 			"jobicy":         on,
-			"arbeitnow":      on,
-			"hackernews":     on,
-			"greenhouse":     on,
-			"lever":          on,
-			"ashby":          on,
+			// 0 of 286 jobs passed the region stage in the first measurement:
+			// it lists German-market jobs. Set enabled: true to re-measure.
+			"arbeitnow":  {Enabled: false},
+			"hackernews": on,
+			"greenhouse": on,
+			"lever":      on,
+			"ashby":      on,
 		},
 		Filter: Filter{
 			RegionAllow: `(?i)\b(worldwide|world wide|anywhere|global|international|europe|european|eu|emea|cee|romania|any time ?zone)\b`,
 			// (?i:...) is scoped on purpose: US/UK/NA and Go must stay case-sensitive.
 			RegionDeny:       `(?i:\b(usa|united states|u\.s\.|canada|united kingdom|australia|new zealand|india|brazil|mexico|latam|latin america|apac|asia|africa|north america|americas|germany|france|spain|italy|netherlands|poland|singapore|japan)\b)|\b(US|UK|NA)\b`,
+			DescriptionDeny:  descriptionDeny,
 			TitleInclude:     `(?i)\b(engineer|developer|programmer|software|backend|back-end|full[- ]?stack|architect|sre|devops|platform)\b`,
 			TitleExclude:     `(?i)\b(sales|account (executive|manager)|marketing|recruit\w*|designer|support|customer|hr|legal|finance|accountant|writer|content|analyst|qa|quality|test|mobile|ios|android|embedded|wordpress|php|ruby|java|\.net|c#|c\+\+|salesforce|sap|engineering manager|product manager|project manager|data scientist|machine learning|ml)\b`,
 			Stack:            `(?i:\b(golang|typescript|react|node\.?js|next\.?js)\b)|\bGo\b`,

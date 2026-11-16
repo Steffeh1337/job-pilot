@@ -14,7 +14,7 @@ type Filter struct {
 	regionAllow, regionDeny    *regexp.Regexp
 	titleInclude, titleExclude *regexp.Regexp
 	stack, seniorityExclude    *regexp.Regexp
-	b2b                        *regexp.Regexp
+	b2b, b2bIgnore, b2bTitle   *regexp.Regexp
 }
 
 func NewFilter(c config.Filter) (*Filter, error) {
@@ -31,6 +31,8 @@ func NewFilter(c config.Filter) (*Filter, error) {
 		{&f.stack, "stack", c.Stack},
 		{&f.seniorityExclude, "seniority_exclude", c.SeniorityExclude},
 		{&f.b2b, "b2b", c.B2B},
+		{&f.b2bIgnore, "b2b_ignore", c.B2BIgnore},
+		{&f.b2bTitle, "b2b_title", c.B2BTitle},
 	} {
 		re, err := regexp.Compile(p.expr)
 		if err != nil {
@@ -100,10 +102,24 @@ func (f *Filter) regionOK(j *domain.Job) bool {
 	return !f.regionDeny.MatchString(j.Location)
 }
 
+// employmentTypeB2B are fragments of a source's own employment-type field
+// that mean contract-style work ("Contract", "Freelance", "Temporary",
+// "Fixed term").
+var employmentTypeB2B = []string{"contract", "freelance", "temporar", "interim", "fixed"}
+
+// isB2B reports whether the job is contract, freelance, independent or
+// short-term work. The source's own employment type is trusted first; then the
+// title and description are searched after boilerplate such as "B2B SaaS" and
+// "smart contract" has been blanked out.
 func (f *Filter) isB2B(j *domain.Job) bool {
 	t := strings.ToLower(j.EmploymentType)
-	if strings.Contains(t, "contract") || strings.Contains(t, "freelance") {
+	for _, frag := range employmentTypeB2B {
+		if strings.Contains(t, frag) {
+			return true
+		}
+	}
+	if f.b2bTitle.MatchString(f.b2bIgnore.ReplaceAllString(j.Title, " ")) {
 		return true
 	}
-	return f.b2b.MatchString(j.Title + "\n" + j.Description)
+	return f.b2b.MatchString(f.b2bIgnore.ReplaceAllString(j.Description, " "))
 }

@@ -163,6 +163,72 @@ func TestClassify(t *testing.T) {
 	}
 }
 
+// The phrases below are taken from real postings in the first week of data.
+func TestIsB2B(t *testing.T) {
+	tests := []struct {
+		name  string
+		title string
+		desc  string
+		etype string
+		want  bool
+	}{
+		// Contract-style work that must be found.
+		{"contract-based roles", "Senior React Developer", "Two ways to work with clients Contract: most roles are contract-based.", "", true},
+		{"full-time contractor", "Software Engineer", "Type: Full-time contractor. Start in December.", "", true},
+		{"remote contractor line", "AWS Architect", "Final Details Remote Contractor USD Full Time", "", true},
+		{"permanent or contract", "Senior Engineer", "Remote or Berlin · Full time · Permanent or contract · Start as soon as possible", "", true},
+		{"contractors welcome", "Senior Engineer", "Full-time contractors are also welcome.", "", true},
+		{"hacker news contract header", "Senior Full-Stack Engineer | REMOTE (worldwide) | Contract, 4–5 months | $3,000–4,000/month", "", "", true},
+		{"six month contract", "Full-Stack Developer", "6-month contract offer for the right candidate", "", true},
+		{"spanish contractor line", "DESARROLLADOR FULL STACK", "Contratación: Contractor. Pago: En USD.", "", true},
+		{"freelancer thread", "Go developer", "", "freelance", true},
+		{"freelance word", "Developer", "This is a contractor/freelancer opportunity.", "", true},
+		{"b2b contract", "Engineer", "We offer a B2B contract with monthly invoices.", "", true},
+		{"b2b basis", "Engineer", "Work on a B2B basis from Poland.", "", true},
+		{"on a b2b", "Engineer", "Hired on a B2B.", "", true},
+		{"short-term contract", "Engineer", "A short-term contract to start.", "", true},
+		{"temporary role", "Engineer", "This is a temporary role covering leave.", "", true},
+		{"project based", "Engineer", "Mostly project-based work.", "", true},
+		{"hourly figure", "Engineer", "Paid $60/hr, invoiced monthly.", "", true},
+		{"day rate", "Engineer", "Day rate negotiable.", "", true},
+		{"independent contractor", "Engineer", "Open to independent contractors.", "", true},
+		{"contract in title", "Senior Go Engineer (Contract)", "", "", true},
+		{"employment type contract", "Engineer", "", "Contract", true},
+		{"employment type temporary", "Engineer", "", "Temporary", true},
+		{"employment type fixed term", "Engineer", "", "Fixed term", true},
+
+		// Wording that only looks like it, which must not count.
+		{"B2B SaaS company", "Senior Full Stack", "Complex B2B SaaS products. Experience working with distributed teams.", "", false},
+		{"B2B technology company", "Principal Architect", "Jumio is a B2B technology company dedicated to eradicating online fraud.", "", false},
+		{"B2B products", "Developer", "Build the exciting brands in gaming, consumer tech, and B2B SaaS.", "", false},
+		{"B2B stack", "Developer", "External APIs used in our B2B stack.", "", false},
+		{"B2B or B2C", "Developer", "We serve B2B and B2C customers.", "", false},
+		{"smart contract development", "Developer Experience Engineer", "Deep understanding of EVM and smart contract development.", "", false},
+		{"smart contract in title", "Smart Contract Engineer", "Solidity.", "", false},
+		{"API contract design", "Principal Engineer", "Experience designing REST APIs, including contract design, versioning, error handling.", "", false},
+		{"contract deliverables", "Solutions Engineer", "Technical requirements translated into contract deliverables.", "", false},
+		{"independent non-profit", "Principal Engineer", "AIWI is an independent non-profit.", "", false},
+		{"employees and contractors", "Engineer", "We value all employees and contractors equally.", "", false},
+		{"employees, vendors and contractors", "Engineer", "Applies to employees, vendors, and contractors.", "", false},
+		{"contractors and employees", "Engineer", "Policy covers contractors and employees.", "", false},
+		{"contract of employment", "Engineer", "Subject to the terms of your contract of employment.", "", false},
+		{"Contract colon, full-time employee", "Engineer", "Contract: Full-time. Hiring Process: 45-min chat.", "", false},
+		{"short-term goals", "Engineer", "Balance short-term goals with long-term vision.", "", false},
+		{"invoicing product", "Engineer", "We build invoicing software for small businesses.", "", false},
+		{"management consultancy client", "AI Engineer", "Our client is a leading global management consultancy.", "", false},
+		{"plain full-time", "Engineer", "Full-time employment with equity.", "Full-Time", false},
+	}
+	f := testFilter(t)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			j := &domain.Job{Title: tt.title, Description: tt.desc, EmploymentType: tt.etype}
+			if got := f.isB2B(j); got != tt.want {
+				t.Errorf("isB2B = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestNewFilterRejectsBadRegex(t *testing.T) {
 	c := config.Default().Filter
 	c.Stack = "("

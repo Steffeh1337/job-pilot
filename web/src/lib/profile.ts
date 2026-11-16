@@ -36,6 +36,7 @@ export function toDraft(p: ProfileView): Profile {
     skills: p.skills.map((s) => ({ name: s.name, core: s.core })),
     languages: [...p.languages],
     summary: p.summary,
+    highlights: [...(p.highlights ?? [])],
   }
 }
 
@@ -49,6 +50,7 @@ export function isDirty(draft: Profile, saved: Profile): boolean {
       k: [...p.skills].map((x) => `${x.name.toLowerCase()}:${x.core ? 1 : 0}`).sort(),
       l: p.languages.map((x) => x.toLowerCase()).sort(),
       m: p.summary.trim(),
+      b: p.highlights.map((x) => x.trim()).filter(Boolean),
     })
   return key(draft) !== key(saved)
 }

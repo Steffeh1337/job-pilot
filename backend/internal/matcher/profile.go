@@ -98,7 +98,7 @@ func (m *Matcher) Profile(ctx context.Context) (*ProfileView, error) {
 		return nil, err
 	}
 	if row == nil {
-		return &ProfileView{Profile: Profile{Skills: []Skill{}, Languages: []string{}}}, nil
+		return &ProfileView{Profile: Profile{Skills: []Skill{}, Languages: []string{}, Highlights: []string{}}}, nil
 	}
 	var p Profile
 	if err := json.Unmarshal(row.Data, &p); err != nil {
@@ -109,6 +109,9 @@ func (m *Matcher) Profile(ctx context.Context) (*ProfileView, error) {
 	}
 	if p.Languages == nil {
 		p.Languages = []string{}
+	}
+	if p.Highlights == nil {
+		p.Highlights = []string{}
 	}
 	return &ProfileView{
 		Exists: true, Profile: p, CVFilename: row.CVFilename, CVChars: len([]rune(row.CVText)),

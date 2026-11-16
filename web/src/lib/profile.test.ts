@@ -28,7 +28,7 @@ describe('parseList', () => {
 
 const view = (over: Partial<ProfileView> = {}): ProfileView => ({
   exists: true, headline: 'Engineer', seniority: 'senior', years_experience: 8,
-  skills: [{ name: 'Go', core: true, category: 'Languages' }], languages: ['English'], summary: 'Hello',
+  skills: [{ name: 'Go', core: true, category: 'Languages' }], languages: ['English'], summary: 'Hello', highlights: ['Led the Go migration'],
   has_embedding: false, ...over,
 })
 
@@ -37,6 +37,7 @@ describe('toDraft and isDirty', () => {
     expect(toDraft(view())).toEqual({
       headline: 'Engineer', seniority: 'senior', years_experience: 8,
       skills: [{ name: 'Go', core: true }], languages: ['English'], summary: 'Hello',
+      highlights: ['Led the Go migration'],
     })
   })
 
@@ -51,12 +52,22 @@ describe('toDraft and isDirty', () => {
     ['a core flag', { skills: [{ name: 'Go', core: false }] }],
     ['languages', { languages: ['English', 'Romanian'] }],
     ['summary', { summary: 'Changed' }],
+    ['a highlight', { highlights: ['Led the Go migration', 'Ran the platform team'] }],
+    ['an edited highlight', { highlights: ['Led the Rust migration'] }],
   ])('notices a change to %s', (_, change) => expect(isDirty({ ...base, ...change }, base)).toBe(true))
 
   it('ignores skill order, whitespace and case in names', () => {
     const a = { ...base, skills: [{ name: 'Go', core: true }, { name: 'Docker', core: false }], headline: ' Engineer ' }
     const b = { ...base, skills: [{ name: 'docker', core: false }, { name: 'GO', core: true }] }
     expect(isDirty(a, b)).toBe(false)
+  })
+
+  it('ignores blank highlight rows and surrounding whitespace', () =>
+    expect(isDirty({ ...base, highlights: ['  Led the Go migration ', '', '   '] }, base)).toBe(false))
+
+  it('treats a profile saved before highlights existed as having none', () => {
+    const old = { ...view(), highlights: undefined } as unknown as ProfileView
+    expect(toDraft(old).highlights).toEqual([])
   })
 })
 

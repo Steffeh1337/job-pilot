@@ -29,6 +29,8 @@ type Profile struct {
 	Skills          []Skill  `json:"skills"`
 	Languages       []string `json:"languages"`
 	Summary         string   `json:"summary"`
+	// Highlights are up to three bullets that show exceptional ability.
+	Highlights []string `json:"highlights"`
 }
 
 var seniorities = map[string]bool{"junior": true, "mid": true, "senior": true, "staff": true, "principal": true}
@@ -296,6 +298,11 @@ func (m *Matcher) clean(p Profile) (Profile, error) {
 		}
 	}
 	p.Languages = langs
+	hl, err := cleanHighlights(p.Highlights)
+	if err != nil {
+		return p, err
+	}
+	p.Highlights = hl
 	if p.Seniority == "" {
 		p.Seniority = seniorityForYears(p.YearsExperience)
 	}

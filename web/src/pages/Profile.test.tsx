@@ -9,12 +9,12 @@ const ready: FitStatus = {
   index: { eligible: 10, with_skills: 10, with_embeddings: 10, syncing: false, last_sync: null },
 }
 
-const none: ProfileView = { exists: false, headline: '', seniority: '', years_experience: 0, skills: [], languages: [], summary: '', has_embedding: false }
+const none: ProfileView = { exists: false, headline: '', seniority: '', years_experience: 0, skills: [], languages: [], summary: '', highlights: [], has_embedding: false }
 
 const saved: ProfileView = {
   exists: true, headline: 'Senior backend engineer', seniority: 'senior', years_experience: 8,
   skills: [{ name: 'Go', core: true, category: 'Languages' }, { name: 'Docker', core: false }],
-  languages: ['English'], summary: 'Builds backend systems.', has_embedding: true,
+  languages: ['English'], summary: 'Builds backend systems.', highlights: [], has_embedding: true,
   cv_filename: 'jane.pdf', cv_chars: 1234, cv_preview: 'Jane Developer\nSenior Backend Engineer',
   extracted_by: 'llm:qwen2.5:7b', updated_at: '2026-11-20T10:00:00Z', uploaded_at: '2026-11-20T10:00:00Z',
 }
@@ -120,7 +120,7 @@ describe('Profile page: editing', () => {
     expect(JSON.parse(String(call.body))).toEqual({
       headline: 'Staff engineer', seniority: 'senior', years_experience: 8,
       skills: [{ name: 'Go', core: true }, { name: 'Docker', core: true }, { name: 'Temporal', core: false }],
-      languages: ['English', 'Romanian'], summary: 'Builds backend systems.',
+      languages: ['English', 'Romanian'], summary: 'Builds backend systems.', highlights: [],
     })
     await waitFor(() => expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled())
     expect(screen.getByDisplayValue('Staff engineer')).toBeInTheDocument()
@@ -150,6 +150,71 @@ describe('Profile page: editing', () => {
     expect(within(details).getByText(/1,234 characters/)).toBeInTheDocument()
     expect(details).toHaveTextContent('Senior Backend Engineer')
     expect(details).toHaveTextContent(/image-based/)
+  })
+})
+
+describe('Profile page: highlights', () => {
+  const drafted = { highlights: ['Led the migration to Go microservices on Kubernetes.', 'Ran Docker in production for 8 years.'], warnings: [] }
+
+  function setup(profile: ProfileView, extra: Record<string, unknown> = {}) {
+    const api = fakeApi({ 'GET /api/profile': profile, 'GET /api/fit/status': ready, ...extra })
+    renderApp(<Profile />)
+    return api
+  }
+
+  it('drafts bullets into the form without saving them', async () => {
+    const api = setup(saved, { 'POST /api/profile/highlights': drafted })
+    fireEvent.click(await screen.findByRole('button', { name: 'Draft from my CV' }))
+
+    expect(await screen.findByLabelText('Highlight 1')).toHaveValue(drafted.highlights[0])
+    expect(screen.getByLabelText('Highlight 2')).toHaveValue(drafted.highlights[1])
+    expect(api.to('PUT', '/api/profile')).toHaveLength(0)
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeEnabled()
+  })
+
+  it('saves the highlights with the profile', async () => {
+    const api = setup(saved, { 'POST /api/profile/highlights': drafted, 'PUT /api/profile': () => json({ ...saved, highlights: drafted.highlights }) })
+    fireEvent.click(await screen.findByRole('button', { name: 'Draft from my CV' }))
+    await screen.findByLabelText('Highlight 1')
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+    await waitFor(() => expect(api.to('PUT', '/api/profile')).toHaveLength(1))
+    expect(JSON.parse(String(api.to('PUT', '/api/profile')[0]!.body)).highlights).toEqual(drafted.highlights)
+  })
+
+  it('passes on what the model could not back up', async () => {
+    setup(saved, { 'POST /api/profile/highlights': { highlights: [], warnings: ['The model found no achievement it could back up with your CV.'] } })
+    fireEvent.click(await screen.findByRole('button', { name: 'Draft from my CV' }))
+    expect(await screen.findByText(/could back up with your CV/)).toBeInTheDocument()
+    expect(screen.queryByLabelText('Highlight 1')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled()
+  })
+
+  it('explains when the local model is not available', async () => {
+    setup(saved, { 'POST /api/profile/highlights': () => json({ error: 'Ollama is not running. Start it (make ollama) and try again.' }, 503) })
+    fireEvent.click(await screen.findByRole('button', { name: 'Draft from my CV' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Ollama is not running')
+  })
+
+  it('asks before replacing bullets you wrote, and respects a no', async () => {
+    const api = setup({ ...saved, highlights: ['My own bullet'] }, { 'POST /api/profile/highlights': drafted })
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    fireEvent.click(await screen.findByRole('button', { name: 'Draft from my CV' }))
+    expect(confirm).toHaveBeenCalled()
+    expect(api.to('POST', '/api/profile/highlights')).toHaveLength(0)
+    expect(screen.getByLabelText('Highlight 1')).toHaveValue('My own bullet')
+  })
+
+  it('lets you write, add up to three, and remove bullets', async () => {
+    setup(saved)
+    fireEvent.click(await screen.findByRole('button', { name: 'Add a highlight' }))
+    fireEvent.change(screen.getByLabelText('Highlight 1'), { target: { value: 'Cut deploy time by 70%' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add a highlight' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add a highlight' }))
+    expect(screen.queryByRole('button', { name: 'Add a highlight' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Remove highlight 3' }))
+    expect(screen.getByRole('button', { name: 'Add a highlight' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Highlight 1')).toHaveValue('Cut deploy time by 70%')
   })
 })
 

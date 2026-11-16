@@ -106,6 +106,8 @@ export interface Profile {
   skills: ProfileSkill[]
   languages: string[]
   summary: string
+  /** Up to three bullets that show exceptional ability. */
+  highlights: string[]
 }
 
 export interface ProfileView extends Profile {
@@ -117,6 +119,12 @@ export interface ProfileView extends Profile {
   uploaded_at?: string
   updated_at?: string
   has_embedding: boolean
+}
+
+/** Bullets drafted for review; nothing is saved until the profile is. */
+export interface HighlightsResponse {
+  highlights: string[]
+  warnings: string[]
 }
 
 export interface ProfileResponse {
@@ -209,6 +217,7 @@ export const api = {
     return request<ProfileResponse>('/api/profile/cv', { method: 'POST', body: form })
   },
   reextract: () => request<ProfileResponse>('/api/profile/reextract', { method: 'POST' }),
+  suggestHighlights: () => request<HighlightsResponse>('/api/profile/highlights', { method: 'POST' }),
   saveProfile: (p: Profile) =>
     request<ProfileView>('/api/profile', {
       method: 'PUT',

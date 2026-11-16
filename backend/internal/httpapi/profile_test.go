@@ -284,3 +284,33 @@ func TestMatchingIsUnavailableWithoutAMatcher(t *testing.T) {
 		t.Errorf("jobs without a matcher = %d", rec.Code)
 	}
 }
+
+func TestHighlightsEndpoints(t *testing.T) {
+	a, _, _ := matchingAPI(t)
+	if rec := do(a, http.MethodPost, "/api/profile/highlights", nil); rec.Code != http.StatusNotFound {
+		t.Errorf("no CV = %d, want 404", rec.Code)
+	}
+	upload(t, a, "cv", "cv.txt", []byte(apiCV))
+
+	// This matcher has no local model, so drafting is unavailable, and says why.
+	rec := do(a, http.MethodPost, "/api/profile/highlights", nil)
+	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "local model") {
+		t.Errorf("no model = %d %s, want 503 explaining it", rec.Code, rec.Body)
+	}
+
+	// Highlights are saved with the rest of the profile.
+	put := func(body string) *httptest.ResponseRecorder {
+		return do(a, http.MethodPut, "/api/profile", strings.NewReader(body))
+	}
+	rec = put(`{"seniority":"senior","skills":[{"name":"Go","core":true}],"highlights":["Led the Go migration","Ran the platform team"]}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("save = %d %s", rec.Code, rec.Body)
+	}
+	got := decode[matcher.ProfileView](t, do(a, http.MethodGet, "/api/profile", nil))
+	if len(got.Highlights) != 2 || got.Highlights[0] != "Led the Go migration" {
+		t.Errorf("highlights = %q", got.Highlights)
+	}
+	if rec := put(`{"seniority":"senior","highlights":["a","b","c","d"]}`); rec.Code != http.StatusBadRequest {
+		t.Errorf("four highlights = %d, want 400", rec.Code)
+	}
+}

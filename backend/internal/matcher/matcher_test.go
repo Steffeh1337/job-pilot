@@ -944,3 +944,126 @@ func TestCustomSkillsMatchJobText(t *testing.T) {
 		t.Errorf("Temporal is both matched and missing: %+v", fits[id])
 	}
 }
+
+func TestSuggestHighlightsKeepsOnlyWhatTheCVSupports(t *testing.T) {
+	llm := &fakeLLM{models: chatAndEmbed, chat: llmProfile{}}
+	m, _ := newMatcher(t, llm)
+	ctx := context.Background()
+	if _, _, err := m.Upload(ctx, "cv.txt", []byte(sampleCV)); err != nil {
+		t.Fatal(err)
+	}
+	llm.chat = llmHighlights{Highlights: []string{
+		"- Led the migration to Go microservices on Kubernetes across distributed systems.",
+		"Cut latency by 40% across 12 services with Go.",                                  // numbers that are not in the CV
+		"Built a Rust compiler that powers distributed systems at scale.",                 // a skill the CV never names
+		"Reached out to jane@example.com about distributed systems migration.",            // contact details
+		"Won three international awards for exceptional cinematography work.",             // nothing here is in the CV
+		"Led the migration to go microservices on kubernetes across distributed systems.", // a repeat
+		"Short.",
+	}}
+
+	got, warnings, err := m.SuggestHighlights(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || !strings.HasPrefix(got[0], "Led the migration to Go microservices") || strings.HasPrefix(got[0], "-") {
+		t.Errorf("highlights = %q", got)
+	}
+	if len(warnings) != 1 || !strings.Contains(warnings[0], "dropped") {
+		t.Errorf("warnings = %q, want one about dropped suggestions", warnings)
+	}
+	if view, _ := m.Profile(ctx); len(view.Highlights) != 0 {
+		t.Errorf("a suggestion must not be saved until the person saves it: %q", view.Highlights)
+	}
+}
+
+func TestSuggestHighlightsStopsAtThree(t *testing.T) {
+	llm := &fakeLLM{models: chatAndEmbed, chat: llmProfile{}}
+	m, _ := newMatcher(t, llm)
+	ctx := context.Background()
+	m.Upload(ctx, "cv.txt", []byte(sampleCV))
+	llm.chat = llmHighlights{Highlights: []string{
+		"Led the migration to Go microservices on Kubernetes.",
+		"Built distributed systems with Go and Docker daily for 8 years.",
+		"Used Temporal for workflow orchestration in distributed systems.",
+		"Ran Kubernetes and Docker in production for distributed systems.",
+	}}
+	got, _, err := m.SuggestHighlights(ctx)
+	if err != nil || len(got) != 3 {
+		t.Fatalf("got %q, %v; want three", got, err)
+	}
+}
+
+func TestSuggestHighlightsWhenNothingIsSupported(t *testing.T) {
+	llm := &fakeLLM{models: chatAndEmbed, chat: llmProfile{}}
+	m, _ := newMatcher(t, llm)
+	ctx := context.Background()
+	m.Upload(ctx, "cv.txt", []byte(sampleCV))
+	llm.chat = llmHighlights{}
+	got, warnings, err := m.SuggestHighlights(ctx)
+	if err != nil || len(got) != 0 || len(warnings) == 0 {
+		t.Errorf("got %q, %q, %v; want no bullets and a note saying so", got, warnings, err)
+	}
+}
+
+func TestSuggestHighlightsProblems(t *testing.T) {
+	ctx := context.Background()
+
+	m, _ := newMatcher(t, &fakeLLM{models: chatAndEmbed})
+	if _, _, err := m.SuggestHighlights(ctx); !errors.Is(err, ErrNoProfile) {
+		t.Errorf("without a CV: %v", err)
+	}
+
+	llm := &fakeLLM{models: chatAndEmbed, chat: llmProfile{}}
+	m, _ = newMatcher(t, llm)
+	m.Upload(ctx, "cv.txt", []byte(sampleCV))
+	llm.down = &ollama.UnavailableError{Err: errors.New("connection refused")}
+	var unavailable *UnavailableError
+	if _, _, err := m.SuggestHighlights(ctx); !errors.As(err, &unavailable) || !strings.Contains(err.Error(), "not running") {
+		t.Errorf("Ollama down: %v", err)
+	}
+
+	llm.down = nil
+	llm.models = []ollama.Model{{Name: "nomic-embed-text:latest"}}
+	if _, _, err := m.SuggestHighlights(ctx); !errors.As(err, &unavailable) || !strings.Contains(err.Error(), "ollama pull") {
+		t.Errorf("no chat model: %v", err)
+	}
+
+	m, _ = newMatcher(t, nil)
+	m.Upload(ctx, "cv.txt", []byte(sampleCV))
+	if _, _, err := m.SuggestHighlights(ctx); !errors.As(err, &unavailable) {
+		t.Errorf("Ollama off: %v", err)
+	}
+}
+
+func TestHighlightsAreStoredAndValidated(t *testing.T) {
+	m, _ := newMatcher(t, nil)
+	ctx := context.Background()
+	m.Upload(ctx, "cv.txt", []byte(sampleCV))
+	if v, _ := m.Profile(ctx); v.Highlights == nil || len(v.Highlights) != 0 {
+		t.Fatalf("a fresh profile has an empty list, not null: %#v", v.Highlights)
+	}
+	base := Profile{Seniority: "senior", Skills: []Skill{{Name: "Go", Core: true}}}
+
+	base.Highlights = []string{"  Led the Go migration  ", "", "led the   go migration", "Ran Kubernetes in production"}
+	v, err := m.UpdateProfile(ctx, base)
+	if err != nil || len(v.Highlights) != 2 || v.Highlights[0] != "Led the Go migration" {
+		t.Fatalf("highlights = %q, err = %v; want trimmed and de-duplicated", v.Highlights, err)
+	}
+	if v2, _ := m.Profile(ctx); len(v2.Highlights) != 2 {
+		t.Errorf("not stored: %q", v2.Highlights)
+	}
+
+	for name, hs := range map[string][]string{
+		"too many":   {"a one", "a two", "a three", "a four"},
+		"too long":   {strings.Repeat("x", maxHighlightRunes+1)},
+		"an email":   {"Contact me at jane@example.com"},
+		"a phone no": {"Call +40 721 234 567 for details"},
+	} {
+		base.Highlights = hs
+		var bad *ValidationError
+		if _, err := m.UpdateProfile(ctx, base); !errors.As(err, &bad) {
+			t.Errorf("%s: err = %v, want a validation error", name, err)
+		}
+	}
+}

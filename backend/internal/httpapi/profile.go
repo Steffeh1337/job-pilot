@@ -18,6 +18,7 @@ type Matcher interface {
 	Profile(ctx context.Context) (*matcher.ProfileView, error)
 	Upload(ctx context.Context, filename string, data []byte) (*matcher.ProfileView, []string, error)
 	Reextract(ctx context.Context) (*matcher.ProfileView, []string, error)
+	SuggestHighlights(ctx context.Context) ([]string, []string, error)
 	UpdateProfile(ctx context.Context, p matcher.Profile) (*matcher.ProfileView, error)
 	DeleteProfile(ctx context.Context) error
 	RequestSync()
@@ -31,6 +32,7 @@ func (a *API) registerMatching(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /api/profile", a.withMatcher(a.deleteProfile))
 	mux.HandleFunc("POST /api/profile/cv", a.withMatcher(a.uploadCV))
 	mux.HandleFunc("POST /api/profile/reextract", a.withMatcher(a.reextract))
+	mux.HandleFunc("POST /api/profile/highlights", a.withMatcher(a.suggestHighlights))
 	mux.HandleFunc("GET /api/fit/status", a.withMatcher(a.fitStatus))
 	mux.HandleFunc("POST /api/fit/sync", a.withMatcher(a.fitSync))
 }
@@ -108,6 +110,22 @@ func (a *API) reextract(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, profileResponse{Profile: view, Warnings: nonNilStrings(warnings)})
 }
 
+// highlightsResponse is bullets drafted for review. Nothing is saved until the
+// person saves the profile.
+type highlightsResponse struct {
+	Highlights []string `json:"highlights"`
+	Warnings   []string `json:"warnings"`
+}
+
+func (a *API) suggestHighlights(w http.ResponseWriter, r *http.Request) {
+	bullets, warnings, err := a.Matcher.SuggestHighlights(r.Context())
+	if err != nil {
+		a.profileError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, highlightsResponse{Highlights: nonNilStrings(bullets), Warnings: nonNilStrings(warnings)})
+}
+
 func (a *API) putProfile(w http.ResponseWriter, r *http.Request) {
 	var p matcher.Profile
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
@@ -146,10 +164,13 @@ func (a *API) fitSync(w http.ResponseWriter, r *http.Request) {
 // profileError maps the matcher's errors onto HTTP statuses.
 func (a *API) profileError(w http.ResponseWriter, err error) {
 	var (
-		invalid *matcher.InvalidCVError
-		bad     *matcher.ValidationError
+		invalid     *matcher.InvalidCVError
+		bad         *matcher.ValidationError
+		unavailable *matcher.UnavailableError
 	)
 	switch {
+	case errors.As(err, &unavailable):
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": err.Error()})
 	case errors.Is(err, cv.ErrTooLarge):
 		writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": err.Error()})
 	case errors.As(err, &invalid):

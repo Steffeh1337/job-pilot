@@ -1093,6 +1093,27 @@ details.setup code {
   resize: vertical;
 }
 
+.highlights {
+  display: grid;
+  gap: 8px;
+}
+
+.highlight {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.highlight textarea {
+  flex: 1;
+}
+
+.highlight-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .profile-form .row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

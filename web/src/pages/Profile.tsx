@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
 import { api, type Profile as ProfileData, type ProfileResponse, type ProfileView } from '../api'
 import { Async } from '../components/Async'
+import { HighlightsEditor, MAX_HIGHLIGHTS } from '../components/HighlightsEditor'
 import { MatchStatus } from '../components/MatchStatus'
 import { SkillsEditor } from '../components/SkillsEditor'
 import { relativeTime } from '../lib/format'
@@ -85,7 +86,7 @@ export function Profile() {
 }
 
 const emptyProfile: ProfileView = {
-  exists: false, headline: '', seniority: '', years_experience: 0, skills: [], languages: [], summary: '', has_embedding: false,
+  exists: false, headline: '', seniority: '', years_experience: 0, skills: [], languages: [], summary: '', highlights: [], has_embedding: false,
 }
 
 function UploadCard({ exists, onReceived, onStart }: { exists: boolean; onReceived: (r: ProfileResponse) => void; onStart: () => void }) {
@@ -230,6 +231,11 @@ function ProfileEditor({
           <span>Summary</span>
           <textarea rows={3} value={draft.summary} onChange={(e) => set('summary', e.target.value)} />
         </label>
+
+        <div className="field">
+          <span className="label">Standout strengths (up to {MAX_HIGHLIGHTS})</span>
+          <HighlightsEditor highlights={draft.highlights} onChange={(h) => set('highlights', h)} />
+        </div>
 
         {save.isError && (
           <p className="refresh-error" role="alert">

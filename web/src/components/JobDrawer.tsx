@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 import { api, type Job } from '../api'
 import { formatSalary, locationSummary, reasonLabel, relativeTime, sourceLabel, REASON_HELP } from '../lib/format'
 import { safeUrl } from '../lib/url'
+import { ApplicationSection } from './ApplicationSection'
 import { Async } from './Async'
 import { FitSection } from './FitSection'
 
@@ -104,6 +105,8 @@ function Details({ job }: { job: Job }) {
           </a>
         </p>
       )}
+
+      <ApplicationSection job={job} />
 
       {job.fit && <FitSection fit={job.fit} />}
 

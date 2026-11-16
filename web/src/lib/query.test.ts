@@ -44,3 +44,20 @@ describe('paramsFromQuery', () => {
     expect(q).toMatchObject({ status: 'rejected', reason: 'role', source: 'ashby', days: 7, q: 'go dev', page: 2 })
   })
 })
+
+describe('applied filter', () => {
+  it('reads applied=1 as only and applied=0 as hide, ignoring anything else', () => {
+    expect(queryFromParams(new URLSearchParams('applied=1')).applied).toBe('only')
+    expect(queryFromParams(new URLSearchParams('applied=0')).applied).toBe('hide')
+    expect(queryFromParams(new URLSearchParams('applied=yes')).applied).toBeUndefined()
+    expect(queryFromParams(new URLSearchParams()).applied).toBeUndefined()
+  })
+
+  it('round-trips through the URL', () => {
+    for (const applied of ['only', 'hide'] as const) {
+      const q = queryFromParams(paramsFromQuery({ status: 'all', applied }))
+      expect(q.applied).toBe(applied)
+    }
+    expect(paramsFromQuery({ status: 'match' }).has('applied')).toBe(false)
+  })
+})

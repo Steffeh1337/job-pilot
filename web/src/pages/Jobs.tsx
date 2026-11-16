@@ -7,6 +7,7 @@ import { FitBadge } from '../components/FitBadge'
 import { JobDrawer } from '../components/JobDrawer'
 import { RefreshBanner } from '../components/RefreshBanner'
 import { RefreshButton } from '../components/RefreshButton'
+import { applicationSummary, statusTone } from '../lib/applications'
 import { MIN_FIT_OPTIONS } from '../lib/fit'
 import { formatSalary, locationSummary, reasonLabel, relativeTime, sourceLabel } from '../lib/format'
 import { paramsFromQuery, queryFromParams, PAGE_SIZE } from '../lib/query'
@@ -17,6 +18,8 @@ const STATUS_LABELS: [Status, string][] = [
   ['rejected', 'Dropped'],
   ['all', 'All'],
 ]
+
+type View = Status | 'applied'
 
 export function Jobs() {
   const [params, setParams] = useSearchParams()
@@ -50,6 +53,12 @@ export function Jobs() {
     setParams(p)
   }
 
+  /** The Applied view is your tracker: everything you applied to, whatever the filters said. */
+  function showView(view: View) {
+    if (view === 'applied') return update({ status: 'all', applied: 'only', reason: undefined })
+    update({ status: view, applied: undefined, reason: view === 'match' ? undefined : q.reason })
+  }
+
   const closeJob = useCallback(() => {
     setParams((prev) => {
       const p = new URLSearchParams(prev)
@@ -76,7 +85,7 @@ export function Jobs() {
   const hasProfile = profile.data?.exists === true
 
   const jobs = useQuery({
-    queryKey: ['jobs', q.status, q.source, q.reason, q.b2b, q.unverified, q.q, q.days, q.sort, q.minFit, q.page],
+    queryKey: ['jobs', q.status, q.source, q.reason, q.b2b, q.unverified, q.applied, q.q, q.days, q.sort, q.minFit, q.page],
     queryFn: () => api.jobs(q),
     placeholderData: (prev) => prev,
   })
@@ -99,14 +108,13 @@ export function Jobs() {
       <div className="filters">
         <div className="segmented" role="group" aria-label="Show">
           {STATUS_LABELS.map(([s, label]) => (
-            <button
-              key={s}
-              aria-pressed={q.status === s}
-              onClick={() => update({ status: s, reason: s === 'match' ? undefined : q.reason })}
-            >
+            <button key={s} aria-pressed={q.applied !== 'only' && q.status === s} onClick={() => showView(s)}>
               {label}
             </button>
           ))}
+          <button aria-pressed={q.applied === 'only'} onClick={() => showView('applied')}>
+            Applied
+          </button>
         </div>
         <input
           type="search"
@@ -145,6 +153,16 @@ export function Jobs() {
           <input type="checkbox" checked={q.b2b} onChange={(e) => update({ b2b: e.target.checked })} />
           B2B / contract
         </label>
+        {q.applied !== 'only' && (
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={q.applied === 'hide'}
+              onChange={(e) => update({ applied: e.target.checked ? 'hide' : undefined })}
+            />
+            Hide applied
+          </label>
+        )}
         <label className="check">
           <input type="checkbox" checked={q.unverified} onChange={(e) => update({ unverified: e.target.checked })} />
           Region unverified
@@ -182,7 +200,13 @@ export function Jobs() {
           {(data) => (
             <>
               {data.jobs.length === 0 ? (
-                <Empty title="No jobs match these filters">Try clearing a filter or widening the time window.</Empty>
+                q.applied === 'only' && !q.q && !q.source && !q.b2b && !q.unverified ? (
+                  <Empty title="Nothing tracked yet">
+                    Open a job, apply on its site, then press <em>Mark as applied</em> to keep track of it here.
+                  </Empty>
+                ) : (
+                  <Empty title="No jobs match these filters">Try clearing a filter or widening the time window.</Empty>
+                )
               ) : (
                 <ul className="jobs">
                   {data.jobs.map((j) => (
@@ -220,6 +244,9 @@ function JobRow({ job, isNew, onOpen }: { job: Job; isNew: boolean; onOpen: () =
       <span className="job-badges">
         {isNew && <span className="badge new">New</span>}
         <span className="badge">{sourceLabel(job.source)}</span>
+        {job.application && (
+          <span className={`badge ${statusTone(job.application.status)}`}>{applicationSummary(job.application)}</span>
+        )}
         {job.b2b && <span className="badge b2b">B2B / contract</span>}
         {job.reject_reason ? (
           <span className="badge danger">{reasonLabel(job.reject_reason)}</span>

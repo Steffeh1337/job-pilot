@@ -18,6 +18,7 @@ export function queryFromParams(p: URLSearchParams): JobQuery & { page: number }
     reason: p.get('reason') || undefined,
     b2b: p.get('b2b') === '1',
     unverified: p.get('unverified') === '1',
+    applied: p.get('applied') === '1' ? 'only' : p.get('applied') === '0' ? 'hide' : undefined,
     q: p.get('q') || undefined,
     days: days > 0 ? days : undefined,
     sort: p.get('sort') === 'fit' ? 'fit' : 'new',
@@ -36,6 +37,7 @@ export function paramsFromQuery(q: Partial<JobQuery> & { page?: number }): URLSe
   if (q.reason) p.set('reason', q.reason)
   if (q.b2b) p.set('b2b', '1')
   if (q.unverified) p.set('unverified', '1')
+  if (q.applied) p.set('applied', q.applied === 'only' ? '1' : '0')
   if (q.q) p.set('q', q.q)
   if (q.days) p.set('days', String(q.days))
   if (q.sort === 'fit') p.set('sort', 'fit')

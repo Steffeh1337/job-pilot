@@ -20,6 +20,23 @@ export interface FunnelResponse {
 
 export type Status = 'match' | 'rejected' | 'all'
 
+export type ApplicationStatus = 'applied' | 'interviewing' | 'offer' | 'rejected' | 'withdrawn'
+
+/** What you recorded about applying to a job. Applying itself happens on the company's site. */
+export interface Application {
+  status: ApplicationStatus
+  /** The day it was sent, YYYY-MM-DD. */
+  applied_on: string
+  notes: string
+  updated_at: string
+}
+
+export interface ApplicationInput {
+  status: ApplicationStatus
+  applied_on: string
+  notes: string
+}
+
 export interface Job {
   id: number
   source: string
@@ -43,6 +60,8 @@ export interface Job {
   description?: string
   /** How well the job matches the uploaded CV; absent without one. */
   fit?: Fit
+  /** Present once you have recorded applying to this job. */
+  application?: Application
 }
 
 export interface JobsResponse {
@@ -161,6 +180,8 @@ export interface JobQuery {
   reason?: string
   b2b?: boolean
   unverified?: boolean
+  /** only: jobs you applied to (latest first); hide: everything else. */
+  applied?: 'only' | 'hide'
   q?: string
   days?: number
   sort?: 'new' | 'fit'
@@ -194,6 +215,7 @@ export function jobsPath(q: JobQuery): string {
   if (q.reason) p.set('reason', q.reason)
   if (q.b2b) p.set('b2b', '1')
   if (q.unverified) p.set('unverified', '1')
+  if (q.applied) p.set('applied', q.applied === 'only' ? '1' : '0')
   if (q.q) p.set('q', q.q)
   if (q.days) p.set('days', String(q.days))
   if (q.sort === 'fit') p.set('sort', 'fit')
@@ -225,6 +247,13 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
     }),
   deleteProfile: () => request<void>('/api/profile', { method: 'DELETE' }),
+  saveApplication: (jobId: number, a: ApplicationInput) =>
+    request<Application>(`/api/jobs/${jobId}/application`, {
+      method: 'PUT',
+      body: JSON.stringify(a),
+      headers: { 'Content-Type': 'application/json' },
+    }),
+  removeApplication: (jobId: number) => request<void>(`/api/jobs/${jobId}/application`, { method: 'DELETE' }),
   fitStatus: () => getJSON<FitStatus>('/api/fit/status'),
   fitSync: () => request<FitStatus>('/api/fit/sync', { method: 'POST' }),
 }

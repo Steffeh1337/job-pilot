@@ -19,13 +19,23 @@ const (
 	StatusAll      Status = "all"
 )
 
+// AppliedFilter narrows a search by whether the job has been applied to.
+type AppliedFilter string
+
+const (
+	AppliedAny  AppliedFilter = ""
+	AppliedOnly AppliedFilter = "only" // only jobs with an application, latest applied first
+	AppliedHide AppliedFilter = "hide" // everything not applied to
+)
+
 // Search selects stored jobs, newest first. Zero values mean "no filter".
 type Search struct {
 	Status     Status
 	Source     string
 	Reason     string // exact reject reason, e.g. "stack"
 	B2BOnly    bool
-	Unverified bool      // only jobs whose region was not positively confirmed
+	Unverified bool // only jobs whose region was not positively confirmed
+	Applied    AppliedFilter
 	Query      string    // case-insensitive substring of title or company
 	Since      time.Time // first seen at or after
 	Limit      int
@@ -60,6 +70,12 @@ func (q Search) where() (string, []any) {
 	if q.Unverified {
 		where = append(where, "region_verified = 0")
 	}
+	switch q.Applied {
+	case AppliedOnly:
+		where = append(where, "id IN (SELECT job_id FROM applications)")
+	case AppliedHide:
+		where = append(where, "id NOT IN (SELECT job_id FROM applications)")
+	}
 	if q.Query != "" {
 		where = append(where, `(title LIKE ? ESCAPE '\' OR company LIKE ? ESCAPE '\')`)
 		like := "%" + escapeLike(q.Query) + "%"
@@ -75,12 +91,21 @@ func (q Search) where() (string, []any) {
 	return " WHERE " + strings.Join(where, " AND "), args
 }
 
+// order is how results are sorted: newest first, except that the tracker lists
+// the most recently applied first.
+func (q Search) order() string {
+	if q.Applied == AppliedOnly {
+		return " ORDER BY (SELECT applied_on FROM applications a WHERE a.job_id = jobs.id) DESC, first_seen_at DESC, id DESC"
+	}
+	return " ORDER BY first_seen_at DESC, id DESC"
+}
+
 // SearchIDs returns the ids of every job matching the filters, newest first,
 // ignoring Limit and Offset. It lets a caller rank or sort by something the
 // database doesn't know, such as fit, and then fetch only one page.
 func (s *Store) SearchIDs(ctx context.Context, q Search) ([]int64, error) {
 	cond, args := q.where()
-	rows, err := s.db.QueryContext(ctx, "SELECT id FROM jobs"+cond+" ORDER BY first_seen_at DESC, id DESC", args...)
+	rows, err := s.db.QueryContext(ctx, "SELECT id FROM jobs"+cond+q.order(), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +162,7 @@ func (s *Store) Search(ctx context.Context, q Search) ([]*domain.Job, int, error
 		limit = 50
 	}
 	jobs, err := s.queryJobs(ctx,
-		"SELECT "+jobCols+" FROM jobs"+cond+" ORDER BY first_seen_at DESC, id DESC LIMIT ? OFFSET ?",
+		"SELECT "+jobCols+" FROM jobs"+cond+q.order()+" LIMIT ? OFFSET ?",
 		append(args, limit, q.Offset)...)
 	return jobs, total, err
 }

@@ -50,6 +50,8 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("GET /api/matches", a.matches)
 	mux.HandleFunc("GET /api/jobs", a.jobs)
 	mux.HandleFunc("GET /api/jobs/{id}", a.job)
+	mux.HandleFunc("PUT /api/jobs/{id}/application", a.putApplication)
+	mux.HandleFunc("DELETE /api/jobs/{id}/application", a.deleteApplication)
 	mux.HandleFunc("GET /api/polls", a.polls)
 	mux.HandleFunc("GET /api/refresh", a.refreshStatus)
 	mux.HandleFunc("POST /api/refresh", a.refreshStart)
@@ -131,6 +133,8 @@ type jobView struct {
 	// Fit is how well the job matches the uploaded CV; absent without one, or
 	// when the job can't be scored.
 	Fit *fit.Fit `json:"fit,omitempty"`
+	// Application is set once the person has recorded applying to the job.
+	Application *applicationView `json:"application,omitempty"`
 }
 
 func view(j *domain.Job, withDescription bool) jobView {
@@ -166,7 +170,8 @@ func (a *API) matches(w http.ResponseWriter, r *http.Request) {
 }
 
 // jobs searches stored jobs. Query parameters: status (match|rejected|all,
-// default match), source, reason, b2b=1, unverified=1, q, days, sort (new|fit),
+// default match), source, reason, b2b=1, unverified=1, applied (1 = only jobs
+// applied to, 0 = hide them), q, days, sort (new|fit),
 // min_fit, limit, offset. sort=fit and min_fit need an uploaded CV; without
 // one they change nothing.
 func (a *API) jobs(w http.ResponseWriter, r *http.Request) {
@@ -177,6 +182,7 @@ func (a *API) jobs(w http.ResponseWriter, r *http.Request) {
 		Reason:     qs.Get("reason"),
 		B2BOnly:    qs.Get("b2b") == "1",
 		Unverified: qs.Get("unverified") == "1",
+		Applied:    appliedFilter(qs.Get("applied")),
 		Query:      strings.TrimSpace(qs.Get("q")),
 		Limit:      intParam(r, "limit", 50, 1, 200),
 		Offset:     intParam(r, "offset", 0, 0, 1_000_000),
@@ -185,6 +191,10 @@ func (a *API) jobs(w http.ResponseWriter, r *http.Request) {
 	case "", store.StatusMatch, store.StatusRejected, store.StatusAll:
 	default:
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "status must be match, rejected or all"})
+		return
+	}
+	if v := qs.Get("applied"); v != "" && q.Applied == store.AppliedAny {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "applied must be 1 (only applied) or 0 (hide applied)"})
 		return
 	}
 	sortBy := qs.Get("sort")
@@ -230,7 +240,23 @@ func (a *API) jobs(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"total": total, "jobs": withFits(views(jobs), fits)})
+	vs, err := a.withApplications(r, withFits(views(jobs), fits))
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"total": total, "jobs": vs})
+}
+
+// appliedFilter reads ?applied=1 (only applied) and ?applied=0 (hide applied).
+func appliedFilter(v string) store.AppliedFilter {
+	switch v {
+	case "1":
+		return store.AppliedOnly
+	case "0":
+		return store.AppliedHide
+	}
+	return store.AppliedAny
 }
 
 // withFits attaches fit scores to job views.
@@ -259,6 +285,14 @@ func (a *API) job(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v := view(j, true)
+	apps, err := a.Store.ApplicationsFor(r.Context(), []int64{id})
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	if app, ok := apps[id]; ok {
+		v.Application = viewApplication(app)
+	}
 	if a.Matcher != nil {
 		fits, err := a.Matcher.Fits(r.Context(), []int64{id})
 		if err != nil {

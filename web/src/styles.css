@@ -873,6 +873,21 @@ details.err pre {
   gap: 6px;
 }
 
+.application {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin: 18px 0;
+}
+
+.application .fit-head {
+  margin-bottom: 8px;
+}
+
+.application .btn.primary {
+  margin-top: 4px;
+}
+
 .fit-section {
   border: 1px solid var(--border);
   border-radius: var(--radius);

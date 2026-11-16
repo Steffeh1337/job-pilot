@@ -61,6 +61,14 @@ All filters are regular expressions in the `filter:` block of `config.yaml`. Edi
 
 The scheduler wakes every 15 minutes but skips any source polled more recently than its own interval. The Muse is not included: its API sits behind a Cloudflare challenge.
 
+## Tracking applications
+
+Every posting links out to the company's own site, so applying can't be automatic. Open a job, press **Open posting**, apply there, then press **Mark as applied** in the job's panel to keep a record. Nothing is sent anywhere.
+
+- The panel then lets you move it along (*Applied, Interviewing, Offer, Rejected, Withdrawn*), change the date, and keep notes (where you applied, who you spoke to, next steps).
+- Jobs you applied to show their status in the list. The **Applied** view is your tracker: everything you applied to, latest first, even jobs a filter would hide. **Hide applied** keeps the main list to jobs you haven't dealt with.
+- It is stored in the same local database as everything else (`backend/data/jobpilot.db`) and is synced to the main file on every save, so it survives restarts and power-off. Re-running `reclassify` or refreshing the boards never touches it. **Remove** deletes the record; the job stays.
+
 ## CV matching
 
 Upload your CV on the **Profile** page and jobs get a **fit score** (0-100) you can sort and filter by. Everything runs on this computer.
@@ -108,7 +116,9 @@ Then press **Re-index jobs** on the Profile page (and **Re-read CV** if you alre
 `POST /api/refresh` polls every source now in the background (the Jobs page's **Refresh** button); `GET /api/refresh` reports progress and what it found. Sources polled in the last 5 minutes are skipped, so repeated clicks are harmless.
 
 `GET /api/health`, `/api/funnel?days=7`, `/api/polls`, `/api/jobs/{id}`, and
-`/api/jobs` with `status` (match, rejected, all), `source`, `reason`, `b2b=1`, `unverified=1`, `q`, `days`, `sort` (new, fit), `min_fit`, `limit`, `offset`. With a CV uploaded, jobs carry a `fit` object.
+`/api/jobs` with `status` (match, rejected, all), `source`, `reason`, `b2b=1`, `unverified=1`, `applied` (1 = only applied, 0 = hide applied), `q`, `days`, `sort` (new, fit), `min_fit`, `limit`, `offset`. With a CV uploaded, jobs carry a `fit` object.
+
+Applications: `PUT /api/jobs/{id}/application` (`status`, `applied_on`, `notes`; an empty body means applied today) and `DELETE /api/jobs/{id}/application`. Jobs carry an `application` object once tracked.
 
 CV matching: `GET /api/profile`, `PUT /api/profile`, `DELETE /api/profile`, `POST /api/profile/cv` (multipart field `cv`), `POST /api/profile/reextract`, `GET /api/fit/status`, `POST /api/fit/sync`. `/api/matches?limit=50` is the older, simpler list.
 

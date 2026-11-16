@@ -43,20 +43,29 @@ function fakeBackend({ initial = idle, runningPolls = 1, postStatus = 202 }: { i
 
 function Harness({ onFinished }: { onFinished: (o: RefreshOutcome) => void }) {
   const r = useRefresh({ onFinished, pollMs: 10 })
-  return <RefreshButton running={r.running} onClick={r.refresh} error={r.error} />
+  return (
+    <>
+      <RefreshButton running={r.running} onClick={r.refresh} error={r.error} />
+      <output aria-label="outcome">{r.outcome ? `${r.outcome.new_jobs} new` : 'none'}</output>
+      <button onClick={r.dismiss}>dismiss</button>
+    </>
+  )
 }
 
-function setup(backend: ReturnType<typeof fakeBackend>) {
+function newClient() {
+  return new QueryClient({ defaultOptions: { queries: { retry: false } } })
+}
+
+function setup(backend: ReturnType<typeof fakeBackend>, client = newClient()) {
   vi.stubGlobal('fetch', backend.fn)
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const invalidate = vi.spyOn(client, 'invalidateQueries')
   const onFinished = vi.fn()
-  render(
+  const view = render(
     <QueryClientProvider client={client}>
       <Harness onFinished={onFinished} />
     </QueryClientProvider>,
   )
-  return { onFinished, invalidate }
+  return { onFinished, invalidate, client, view }
 }
 
 afterEach(() => vi.unstubAllGlobals())
@@ -107,5 +116,31 @@ describe('useRefresh', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('the poller is not running')
     expect(screen.getByRole('button', { name: /refresh/i })).toBeEnabled()
     expect(onFinished).not.toHaveBeenCalled()
+  })
+
+  it('exposes the outcome after finishing, and clears it on dismiss', async () => {
+    setup(fakeBackend())
+    expect(await screen.findByLabelText('outcome')).toHaveTextContent('none')
+
+    fireEvent.click(await screen.findByRole('button', { name: /refresh/i }))
+    await waitFor(() => expect(screen.getByLabelText('outcome')).toHaveTextContent('5 new'))
+
+    fireEvent.click(screen.getByRole('button', { name: 'dismiss' }))
+    await waitFor(() => expect(screen.getByLabelText('outcome')).toHaveTextContent('none'))
+  })
+
+  it('keeps the outcome for a page opened after the refresh finished', async () => {
+    const backend = fakeBackend()
+    const first = setup(backend)
+    fireEvent.click(await screen.findByRole('button', { name: /refresh/i }))
+    await waitFor(() => expect(screen.getByLabelText('outcome')).toHaveTextContent('5 new'))
+    first.view.unmount()
+
+    // Navigating to another page mounts a fresh component on the same cache.
+    const second = setup(fakeBackend({ initial: finished }), first.client)
+    expect(await screen.findByLabelText('outcome')).toHaveTextContent('5 new')
+    // It was not "finished" in front of this instance, so it must not fire again.
+    await new Promise((r) => setTimeout(r, 40))
+    expect(second.onFinished).not.toHaveBeenCalled()
   })
 })

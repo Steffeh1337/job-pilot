@@ -159,11 +159,9 @@ func (s *Scheduler) RefreshStatus() RefreshStatus {
 // The caller must hold s.mu.
 func (s *Scheduler) snapshot() RefreshStatus {
 	out := s.refresh
-	if out.Results == nil {
-		out.Results = []PollResult{}
-	} else {
-		out.Results = append([]PollResult(nil), out.Results...)
-	}
+	// Always a non-nil slice, so the JSON is [] and never null.
+	out.Results = make([]PollResult, len(s.refresh.Results))
+	copy(out.Results, s.refresh.Results)
 	return out
 }
 

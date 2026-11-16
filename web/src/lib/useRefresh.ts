@@ -3,6 +3,8 @@ import { useEffect, useRef } from 'react'
 import { api, type RefreshStatus } from '../api'
 
 const REFRESH_KEY = ['refresh'] as const
+/** The latest finished refresh, kept in memory so every page can show it. */
+const OUTCOME_KEY = ['refresh-outcome'] as const
 
 /** What a finished refresh found. */
 export type RefreshOutcome = RefreshStatus
@@ -33,6 +35,16 @@ export function useRefresh({
     staleTime: 0,
   })
 
+  // Not fetched from anywhere: set when a refresh finishes, cleared on dismiss.
+  const outcome = useQuery<RefreshOutcome | null>({
+    queryKey: OUTCOME_KEY,
+    queryFn: async () => null,
+    enabled: false,
+    initialData: null,
+    staleTime: Infinity,
+    gcTime: Infinity,
+  })
+
   const start = useMutation({
     mutationFn: api.startRefresh,
     onSuccess: (data) => queryClient.setQueryData(REFRESH_KEY, data),
@@ -46,7 +58,10 @@ export function useRefresh({
     const data = status.data
     if (!data) return
     if (wasRunning.current && !data.running) {
-      void queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] !== REFRESH_KEY[0] })
+      queryClient.setQueryData(OUTCOME_KEY, data)
+      void queryClient.invalidateQueries({
+        predicate: (q) => q.queryKey[0] !== REFRESH_KEY[0] && q.queryKey[0] !== OUTCOME_KEY[0],
+      })
       finished.current?.(data)
     }
     wasRunning.current = data.running
@@ -57,5 +72,8 @@ export function useRefresh({
     /** Why a click failed, e.g. the poller isn't running. */
     error: start.error,
     refresh: () => start.mutate(),
+    /** What the latest refresh found, until dismissed. Null before any refresh. */
+    outcome: outcome.data ?? null,
+    dismiss: () => queryClient.setQueryData(OUTCOME_KEY, null),
   }
 }

@@ -2,9 +2,11 @@ package scheduler
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -240,6 +242,10 @@ func TestStartRefreshRunsOnceAndReportsTheOutcome(t *testing.T) {
 	}
 	if st := s.RefreshStatus(); !st.Running || st.FinishedAt != nil {
 		t.Errorf("status while running = %+v", st)
+	}
+	// A running refresh has no results yet, but must serialise as [] not null.
+	if raw, err := json.Marshal(s.RefreshStatus()); err != nil || !strings.Contains(string(raw), `"results":[]`) {
+		t.Errorf("running status JSON = %s (err %v), want an empty results array", raw, err)
 	}
 
 	close(src.block)

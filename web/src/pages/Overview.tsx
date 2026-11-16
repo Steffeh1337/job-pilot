@@ -3,8 +3,11 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { api, type FunnelResponse } from '../api'
 import { Async, Empty } from '../components/Async'
 import { FunnelChart } from '../components/FunnelChart'
+import { RefreshBanner } from '../components/RefreshBanner'
+import { RefreshButton } from '../components/RefreshButton'
 import { formatPct, pct, sourceRows, totalRow } from '../lib/funnel'
 import { REASON_HELP, reasonLabel, sourceLabel } from '../lib/format'
+import { useRefresh } from '../lib/useRefresh'
 
 const WINDOWS = [
   { days: 1, label: '24 h' },
@@ -23,6 +26,9 @@ export function Overview() {
   const days = parseDays(params.get('days'))
   const windowLabel = WINDOWS.find((w) => w.days === days)!.label.toLowerCase()
 
+  // A finished refresh reloads the funnel below, because it invalidates every query.
+  const refresh = useRefresh()
+
   const funnel = useQuery({ queryKey: ['funnel', days], queryFn: () => api.funnel(days), refetchInterval: 60_000 })
   const unverified = useQuery({
     queryKey: ['unverified', days],
@@ -40,18 +46,31 @@ export function Overview() {
             worth keeping and which filter is dropping too much.
           </p>
         </div>
-        <div className="segmented" role="group" aria-label="Time window">
-          {WINDOWS.map((w) => (
-            <button
-              key={w.days}
-              aria-pressed={w.days === days}
-              onClick={() => setParams(w.days === 7 ? {} : { days: String(w.days) })}
-            >
-              {w.label}
-            </button>
-          ))}
+        <div className="head-actions">
+          <RefreshButton running={refresh.running} onClick={refresh.refresh} error={refresh.error} />
+          <div className="segmented" role="group" aria-label="Time window">
+            {WINDOWS.map((w) => (
+              <button
+                key={w.days}
+                aria-pressed={w.days === days}
+                onClick={() => setParams(w.days === 7 ? {} : { days: String(w.days) })}
+              >
+                {w.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
+
+      {refresh.outcome && (
+        <RefreshBanner outcome={refresh.outcome} onDismiss={refresh.dismiss}>
+          {refresh.outcome.new_jobs > 0 && (
+            <Link className="btn" to="/jobs">
+              View new jobs
+            </Link>
+          )}
+        </RefreshBanner>
+      )}
 
       <Async query={funnel} skeletonRows={8}>
         {(data) => {

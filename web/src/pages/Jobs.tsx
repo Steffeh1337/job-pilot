@@ -8,7 +8,7 @@ import { RefreshBanner } from '../components/RefreshBanner'
 import { RefreshButton } from '../components/RefreshButton'
 import { formatSalary, locationSummary, reasonLabel, relativeTime, sourceLabel } from '../lib/format'
 import { paramsFromQuery, queryFromParams, PAGE_SIZE } from '../lib/query'
-import { useRefresh, type RefreshOutcome } from '../lib/useRefresh'
+import { useRefresh } from '../lib/useRefresh'
 
 const STATUS_LABELS: [Status, string][] = [
   ['match', 'Matches'],
@@ -34,13 +34,8 @@ export function Jobs() {
   }, [search])
 
   // After a refresh, show the newest jobs first and mark the ones it found.
-  const [outcome, setOutcome] = useState<RefreshOutcome | null>(null)
-  const refresh = useRefresh({
-    onFinished: (o) => {
-      setOutcome(o)
-      update({})
-    },
-  })
+  const refresh = useRefresh({ onFinished: () => update({}) })
+  const outcome = refresh.outcome
   // first_seen_at has one-second resolution, so compare from the start of the second.
   const newSince = outcome?.started_at ? Math.floor(new Date(outcome.started_at).getTime() / 1000) * 1000 : null
 
@@ -93,7 +88,7 @@ export function Jobs() {
         <RefreshButton running={refresh.running} onClick={refresh.refresh} error={refresh.error} />
       </div>
 
-      {outcome && <RefreshBanner outcome={outcome} onDismiss={() => setOutcome(null)} />}
+      {outcome && <RefreshBanner outcome={outcome} onDismiss={refresh.dismiss} />}
 
       <div className="filters">
         <div className="segmented" role="group" aria-label="Show">

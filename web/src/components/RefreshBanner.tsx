@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { RefreshOutcome } from '../lib/useRefresh'
 import { sourceLabel } from '../lib/format'
 
@@ -8,7 +9,16 @@ const plural = (n: number, word: string) => {
 }
 
 /** Summarises what a refresh found, and anything that went wrong. */
-export function RefreshBanner({ outcome, onDismiss }: { outcome: RefreshOutcome; onDismiss: () => void }) {
+export function RefreshBanner({
+  outcome,
+  onDismiss,
+  children,
+}: {
+  outcome: RefreshOutcome
+  onDismiss: () => void
+  /** Extra actions shown beside Dismiss, such as a link to the new jobs. */
+  children?: ReactNode
+}) {
   const failed = outcome.results.filter((r) => r.error && !r.skipped)
   const skipped = outcome.results.filter((r) => r.skipped)
   const checked = outcome.results.length - skipped.length
@@ -30,9 +40,12 @@ export function RefreshBanner({ outcome, onDismiss }: { outcome: RefreshOutcome;
             ? ` · all ${plural(skipped.length, 'source')} were polled in the last 5 minutes. Try again shortly.`
             : ` · checked ${plural(checked, 'source')}${skipped.length > 0 ? `, ${skipped.length} checked within the last 5 minutes` : ''}`}
         </span>
-        <button className="btn" onClick={onDismiss} aria-label="Dismiss refresh summary">
-          Dismiss
-        </button>
+        <span className="banner-actions">
+          {children}
+          <button className="btn" onClick={onDismiss} aria-label="Dismiss refresh summary">
+            Dismiss
+          </button>
+        </span>
       </div>
       {failed.length > 0 && (
         <details className="err">

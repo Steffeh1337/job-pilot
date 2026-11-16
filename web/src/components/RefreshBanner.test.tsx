@@ -73,6 +73,16 @@ describe('RefreshBanner', () => {
     expect(screen.getByText(/still added 7 jobs/)).toBeInTheDocument()
   })
 
+  it('shows extra actions beside Dismiss', () => {
+    render(
+      <RefreshBanner outcome={{ ...base, new_jobs: 2, results: [{ source: 'a', fetched: 2, new_jobs: 2 }] }} onDismiss={() => {}}>
+        <a href="/jobs">View new jobs</a>
+      </RefreshBanner>,
+    )
+    expect(screen.getByRole('link', { name: 'View new jobs' })).toHaveAttribute('href', '/jobs')
+    expect(screen.getByRole('button', { name: /dismiss/i })).toBeInTheDocument()
+  })
+
   it('can be dismissed', () => {
     const onDismiss = vi.fn()
     render(<RefreshBanner outcome={base} onDismiss={onDismiss} />)

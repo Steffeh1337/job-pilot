@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -910,5 +911,36 @@ func TestPercentile(t *testing.T) {
 	}
 	if round2(0.8349) != 0.83 || round2(0.835) != 0.84 {
 		t.Errorf("round2: %v %v", round2(0.8349), round2(0.835))
+	}
+}
+
+// A skill the user adds that the vocabulary doesn't know can never be found by
+// the vocabulary-based indexer, so it has to be looked for in the job text.
+func TestCustomSkillsMatchJobText(t *testing.T) {
+	m, st := newMatcher(t, nil)
+	ctx := context.Background()
+	m.Upload(ctx, "cv.txt", []byte(sampleCV))
+	id := addJob(t, st, "Senior Go Engineer", "We use Go, Docker and Temporal for workflows. Some gRPC.", domain.StageSenior)
+	other := addJob(t, st, "Senior Go Engineer", "We use Go and Docker.", domain.StageSenior)
+	m.Sync(ctx)
+
+	view, _ := m.Profile(ctx)
+	skillsNow := append(view.Skills, Skill{Name: "Temporal", Core: true})
+	if _, err := m.UpdateProfile(ctx, Profile{Seniority: "senior", Skills: skillsNow}); err != nil {
+		t.Fatal(err)
+	}
+
+	fits, err := m.Fits(ctx, []int64{id, other})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(fits[id].Matched, "Temporal") {
+		t.Errorf("matched = %v, want the custom skill Temporal", fits[id].Matched)
+	}
+	if slices.Contains(fits[other].Matched, "Temporal") || slices.Contains(fits[other].Missing, "Temporal") {
+		t.Errorf("a job that doesn't mention it must not list it: %+v", fits[other])
+	}
+	if len(fits[id].Missing) > 0 && slices.Contains(fits[id].Missing, "Temporal") {
+		t.Errorf("Temporal is both matched and missing: %+v", fits[id])
 	}
 }

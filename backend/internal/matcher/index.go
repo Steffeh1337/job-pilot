@@ -118,16 +118,21 @@ func (m *Matcher) featureVersion() string { return m.Vocab.Version() + "." + ext
 // "golang"), so they only fill in when there is almost no text to read.
 const thinDescription = 300
 
-// jobSkills reads the skills a job asks for from its title and description.
-// Title skills, which count double in the score, come from the title alone.
-func (m *Matcher) jobSkills(j *domain.Job, version string) store.JobSkills {
+// skillText is the text a job's skills are read from.
+func skillText(j *domain.Job) string {
 	text := j.Title + "\n" + j.Description
 	if len(strings.TrimSpace(j.Description)) < thinDescription {
 		text += "\n" + strings.Join(j.Tags, "\n")
 	}
+	return text
+}
+
+// jobSkills reads the skills a job asks for from its title and description.
+// Title skills, which count double in the score, come from the title alone.
+func (m *Matcher) jobSkills(j *domain.Job, version string) store.JobSkills {
 	return store.JobSkills{
 		JobID:        j.ID,
-		Skills:       skillNames(m.Vocab.Extract(text)),
+		Skills:       skillNames(m.Vocab.Extract(skillText(j))),
 		TitleSkills:  skillNames(m.Vocab.Extract(j.Title)),
 		VocabVersion: version,
 	}

@@ -168,16 +168,20 @@ func displayName(name string) string {
 // fitProfile is the profile in the form scoring needs.
 type fitProfile struct {
 	fit.Profile
+	// Custom are the skills the user added that the vocabulary doesn't know.
+	// Jobs are indexed against the vocabulary only, so these are looked for in
+	// the job text when a job is scored.
+	Custom []string
 }
 
 // loadFitProfile returns the scoring view of the stored profile, or nil if
 // there is no profile.
-func (m *Matcher) loadFitProfile(ctx context.Context) (*fit.Profile, error) {
+func (m *Matcher) loadFitProfile(ctx context.Context) (*fitProfile, error) {
 	m.mu.Lock()
 	if m.cache != nil {
 		c := m.cache
 		m.mu.Unlock()
-		return &c.Profile, nil
+		return c, nil
 	}
 	gen := m.gen
 	m.mu.Unlock()
@@ -193,6 +197,9 @@ func (m *Matcher) loadFitProfile(ctx context.Context) (*fit.Profile, error) {
 	fp := &fitProfile{}
 	for _, s := range p.Skills {
 		fp.Skills = append(fp.Skills, fit.Skill{Name: s.Name, Core: s.Core})
+		if _, known := m.Vocab.Lookup(s.Name); !known {
+			fp.Custom = append(fp.Custom, s.Name)
+		}
 	}
 	if row.EmbedModel == m.Cfg.EmbedModel {
 		if v, err := fit.DecodeVector(row.Embedding); err == nil {
@@ -204,7 +211,7 @@ func (m *Matcher) loadFitProfile(ctx context.Context) (*fit.Profile, error) {
 		m.cache = fp
 	}
 	m.mu.Unlock()
-	return &fp.Profile, nil
+	return fp, nil
 }
 
 func unmarshalProfile(data []byte, p *Profile) error {

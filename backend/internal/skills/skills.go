@@ -233,6 +233,40 @@ func Mentions(text, term string) bool {
 	return err == nil && re.MatchString(text)
 }
 
+// Mentioner finds a fixed set of terms in many texts, compiling each term once.
+type Mentioner struct {
+	terms []string
+	res   []*regexp.Regexp
+}
+
+// NewMentioner prepares terms for In. Blank terms are ignored.
+func NewMentioner(terms []string) *Mentioner {
+	m := &Mentioner{}
+	for _, t := range terms {
+		t = strings.TrimSpace(t)
+		if t == "" {
+			continue
+		}
+		re, err := regexp.Compile(`(?i)(?:^|[^A-Za-z0-9_])` + regexp.QuoteMeta(t) + `(?:[^A-Za-z0-9_+#]|$)`)
+		if err != nil {
+			continue
+		}
+		m.terms, m.res = append(m.terms, t), append(m.res, re)
+	}
+	return m
+}
+
+// In returns the terms that appear in text as whole words, ignoring case.
+func (m *Mentioner) In(text string) []string {
+	var out []string
+	for i, re := range m.res {
+		if re.MatchString(text) {
+			out = append(out, m.terms[i])
+		}
+	}
+	return out
+}
+
 // scan calls fn with the span of every alias match. Scanning resumes right
 // after the alias, not after the boundary character that ended it, so "Go,Rust"
 // and "Go/Rust" find both.

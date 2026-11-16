@@ -155,6 +155,14 @@ func (s *Store) UpdateClassification(ctx context.Context, j *domain.Job) error {
 	return err
 }
 
+// UpdateText stores corrected text fields and the fingerprint derived from them.
+func (s *Store) UpdateText(ctx context.Context, j *domain.Job) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE jobs SET title = ?, company = ?, location = ?, fingerprint = ? WHERE id = ?`,
+		j.Title, j.Company, j.Location, j.Fingerprint, j.ID)
+	return err
+}
+
 const jobCols = `id, source, external_id, url, title, company, location, regions, remote,
 	employment_type, tags, description, salary_min, salary_max, currency, posted_at,
 	first_seen_at, last_seen_at, fingerprint, dup_of, stage, b2b, reject_reason, region_verified`

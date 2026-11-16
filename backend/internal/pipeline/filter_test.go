@@ -155,6 +155,31 @@ func TestClassify(t *testing.T) {
 			wantStage: domain.StageUnique, wantReason: "region",
 		},
 		{
+			name:      "a list of countries followed by ONLY (real posting)",
+			job:       domain.Job{Title: "Senior Software Engineer", Remote: true, Description: "REMOTE: United States, Canada, or South America ONLY Experience: 7+ years. Go."},
+			wantStage: domain.StageUnique, wantReason: "region",
+		},
+		{
+			name:      "REMOTE with a colon and a country",
+			job:       domain.Job{Title: "Senior Go Engineer", Remote: true, Description: "Location: REMOTE: Canada. Go."},
+			wantStage: domain.StageUnique, wantReason: "region",
+		},
+		{
+			name:      "REMOTE colon that also names Europe is kept",
+			job:       domain.Job{Title: "Senior Go Engineer", Remote: true, Description: "REMOTE: US or Europe. Go and Kubernetes."},
+			wantStage: domain.StageSenior,
+		},
+		{
+			name:      "South America only",
+			job:       domain.Job{Title: "Senior Go Engineer", Remote: true, Description: "Open to South America only. Go."},
+			wantStage: domain.StageUnique, wantReason: "region",
+		},
+		{
+			name:      "REMOTE colon with a non-country is not a restriction",
+			job:       domain.Job{Title: "Senior Go Engineer", Remote: true, Description: "REMOTE: flexible hours, async culture. Go."},
+			wantStage: domain.StageSenior,
+		},
+		{
 			name:      "anywhere in the US is a restriction, not worldwide",
 			job:       domain.Job{Title: "Senior Go Engineer", Remote: true, Description: "This is a remote position that can be located anywhere in the US or Canada."},
 			wantStage: domain.StageUnique, wantReason: "region",

@@ -65,21 +65,26 @@ type Filter struct {
 
 // countries are the places whose mention in a restriction phrase rules the
 // candidate out. US and UK stay case-sensitive so "join us" never matches.
-const countries = `(?:(?-i:US|USA|UK)|u\.s\.|united states|canada|latam|latin america|united kingdom|germany|france|spain|italy|netherlands|poland|india|brazil|mexico|australia|apac|north america)`
+const countries = `(?:(?-i:US|USA|UK)|u\.s\.|united states|canada|latam|latin america|south america|central america|united kingdom|germany|france|spain|italy|netherlands|poland|india|brazil|mexico|australia|apac|north america)`
+
+// countryList is one or more countries joined by commas, slashes, "and" or
+// "or": "United States, Canada, or South America".
+const countryList = countries + `(?:\s*(?:,|/|&|and|or)\s*` + countries + `)*`
 
 // descriptionDeny matches phrasing that restricts who may apply:
 // "US only", "US-based candidates", "must be located in Canada", "authorized
 // to work in the United States", "remote role based in Latin America",
 // "Remote (within Germany)", "remote work from the US".
-var descriptionDeny = strings.ReplaceAll(`(?i)\b(?:`+
-	`{C}[- ]?(?:only|residents?|citizens?)\b`+
+var descriptionDeny = strings.ReplaceAll(strings.ReplaceAll(`(?i)\b(?:`+
+	`{L}[- ]?(?:only|residents?|citizens?)\b`+
+	`|remote\s*[:\-–—]\s*(?:the\s+)?{L}\b`+
 	`|{C}[- ]based\s+(?:candidates?|applicants?|employees?|engineers?|developers?|contractors?)\b`+
 	`|(?:must|need to|required to|have to|should|can|may)\s+(?:be\s+)?(?:located|based|reside|residing|living|live|work|working)\s+(?:anywhere\s+)?(?:in|from|within)\s+(?:the\s+)?{C}\b`+
 	`|(?:role|position)\s+(?:is\s+)?(?:based|located)\s+(?:in|within)\s+(?:the\s+)?{C}\b`+
 	`|(?:authori[sz]ed|eligible|legally entitled)\s+to\s+work\s+(?:in|within)\s+(?:the\s+)?{C}\b`+
 	`|remote\s*\(\s*(?:within\s+)?(?:the\s+)?{C}\s*\)`+
 	`|remote\b[^.\n]{0,30}?\b(?:within|in|from)\s+(?:the\s+)?{C}\b`+
-	`)`, "{C}", countries)
+	`)`, "{L}", countryList), "{C}", countries)
 
 // b2bIgnore blanks out text that mentions contracts or B2B without saying
 // anything about how the candidate would be engaged.

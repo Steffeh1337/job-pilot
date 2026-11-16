@@ -158,3 +158,48 @@ func TestPollRecording(t *testing.T) {
 		t.Fatalf("RecentPolls = %+v, %v", recent, err)
 	}
 }
+
+func TestIngestDecodesHTMLEntities(t *testing.T) {
+	ctx := context.Background()
+	p, st := newPipeline(t)
+	a := goJob("remoteok", "1", "Hims &#038; Hers")
+	a.Title = "Senior R&amp;D Engineer"
+	a.Location = "  Remote &amp; Hybrid "
+	b := goJob("jobicy", "2", "Hims & Hers") // the same role, spelled normally
+	b.Title = "Senior R&D Engineer"
+	if _, err := p.Ingest(ctx, []*domain.Job{a, b}); err != nil {
+		t.Fatal(err)
+	}
+	jobs, _ := st.AllJobs(ctx)
+	if len(jobs) != 2 {
+		t.Fatalf("stored %d jobs", len(jobs))
+	}
+	if jobs[0].Title != "Senior R&D Engineer" || jobs[0].Company != "Hims & Hers" || jobs[0].Location != "Remote & Hybrid" {
+		t.Errorf("text was not decoded: %q / %q / %q", jobs[0].Title, jobs[0].Company, jobs[0].Location)
+	}
+	if jobs[1].Stage != domain.StageDuplicate {
+		t.Error("the same role from two boards must dedupe once the entities are decoded")
+	}
+}
+
+func TestReclassifyFixesTextStoredBeforeNormalisation(t *testing.T) {
+	ctx := context.Background()
+	p, st := newPipeline(t)
+	now := time.Now()
+	old := goJob("remoteok", "1", "Aisles &amp; Abroad")
+	old.FirstSeenAt, old.LastSeenAt, old.Fingerprint = now, now, "aisles amp abroad|senior backend engineer"
+	if err := st.Insert(ctx, old); err != nil { // as the earlier version stored it
+		t.Fatal(err)
+	}
+
+	if _, err := p.Reclassify(ctx); err != nil {
+		t.Fatal(err)
+	}
+	jobs, _ := st.AllJobs(ctx)
+	if jobs[0].Company != "Aisles & Abroad" {
+		t.Errorf("company = %q", jobs[0].Company)
+	}
+	if want := domain.Fingerprint("Aisles & Abroad", "Senior Backend Engineer"); jobs[0].Fingerprint != want {
+		t.Errorf("fingerprint = %q, want %q", jobs[0].Fingerprint, want)
+	}
+}

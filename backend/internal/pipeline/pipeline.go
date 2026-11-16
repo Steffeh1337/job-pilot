@@ -3,6 +3,8 @@ package pipeline
 
 import (
 	"context"
+	"html"
+	"strings"
 	"sync"
 	"time"
 
@@ -44,6 +46,7 @@ func (p *Pipeline) Ingest(ctx context.Context, jobs []*domain.Job) (int, error) 
 		if seen {
 			continue
 		}
+		normaliseText(j)
 		j.Fingerprint = domain.Fingerprint(j.Company, j.Title)
 		if j.DupOf, err = p.store.FindDuplicate(ctx, j.Fingerprint); err != nil {
 			return added, err
@@ -57,6 +60,19 @@ func (p *Pipeline) Ingest(ctx context.Context, jobs []*domain.Job) (int, error) 
 	}
 	return added, nil
 }
+
+// normaliseText decodes HTML entities that some boards leave in short text
+// fields ("Hims &#038; Hers", "Scheduling &amp; Coordinating"), and reports
+// whether anything changed. It runs before the fingerprint is taken, so the
+// same role from two boards still dedupes.
+func normaliseText(j *domain.Job) bool {
+	title, company, location := cleanField(j.Title), cleanField(j.Company), cleanField(j.Location)
+	changed := title != j.Title || company != j.Company || location != j.Location
+	j.Title, j.Company, j.Location = title, company, location
+	return changed
+}
+
+func cleanField(s string) string { return strings.TrimSpace(html.UnescapeString(s)) }
 
 // Reclassify re-runs the filters over every stored job, for tuning them
 // against what has already been collected. It returns the number of jobs
@@ -72,6 +88,13 @@ func (p *Pipeline) Reclassify(ctx context.Context) (int, error) {
 	changed := 0
 	for _, j := range jobs {
 		before := j.Stage
+		if normaliseText(j) {
+			// Jobs stored before text was normalised: fix them in place.
+			j.Fingerprint = domain.Fingerprint(j.Company, j.Title)
+			if err := p.store.UpdateText(ctx, j); err != nil {
+				return changed, err
+			}
+		}
 		p.filter.Classify(j)
 		if err := p.store.UpdateClassification(ctx, j); err != nil {
 			return changed, err

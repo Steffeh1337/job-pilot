@@ -1,4 +1,4 @@
-.PHONY: dev once funnel reclassify test lint build
+.PHONY: dev once funnel reclassify test lint build web web-install web-build test-web
 
 # Run the poller and API (uses backend/config.yaml if present).
 dev:
@@ -22,6 +22,21 @@ test:
 
 lint:
 	cd backend && gofmt -l . && go vet ./...
+
+# Dashboard. `make web` runs Vite with hot reload on :5173 and proxies /api to
+# the backend on :8080 (start that with `make dev`). `make web-build` produces
+# web/dist, which `make dev` then serves itself at http://127.0.0.1:8080.
+web-install:
+	cd web && npm install
+
+web:
+	cd web && npm run dev
+
+web-build:
+	cd web && npm run build
+
+test-web:
+	cd web && npm run typecheck && npm test
 
 build:
 	cd backend && go build -o bin/server ./cmd/server

@@ -30,6 +30,9 @@ type Scheduler struct {
 	Ctx context.Context
 	// RefreshMinAge overrides DefaultRefreshMinAge when positive.
 	RefreshMinAge time.Duration
+	// AfterRound, if set, is called when a round of polling has finished. It
+	// must return quickly.
+	AfterRound func(results []PollResult)
 
 	runMu sync.Mutex // one poll round at a time, scheduled or manual
 
@@ -190,6 +193,9 @@ func (s *Scheduler) round(ctx context.Context, shouldPoll func(source.Source) (b
 		}
 	}
 	wg.Wait()
+	if s.AfterRound != nil {
+		s.AfterRound(results)
+	}
 	return results
 }
 

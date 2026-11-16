@@ -41,3 +41,25 @@ boards:
 # filter:
 #   region_allow: ...
 #   stack: '(?i:\b(golang|typescript|react)\b)|\bGo\b'
+
+# CV matching. Your CV text is only ever sent to this Ollama, so by default
+# only an address on this machine is accepted. Without Ollama (or with
+# `enabled: false`), jobs are still matched on skills.
+ollama:
+  enabled: true
+  url: http://127.0.0.1:11434
+  # allow_remote: false   # set true only if you really want your CV sent to another machine
+  embed_model: nomic-embed-text   # the wording-similarity model
+  chat_model: ""                  # reads the CV; empty = use an installed model (qwen2.5:7b preferred)
+  # embed_prefix: ""              # unset = the model's recommended prefix
+  timeout: 3m
+
+# How the fit score is made. Weights are relative. semantic_low/high map raw
+# embedding similarity onto 0-100%. Raw similarity is never near 0 (with the
+# default model it runs about 0.62-0.86), and where "related" starts depends on
+# the model and your CV. Run `make calibrate` to measure it on your own data.
+fit:
+  skill_weight: 0.6
+  semantic_weight: 0.4
+  semantic_low: 0.72
+  semantic_high: 0.82

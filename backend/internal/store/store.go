@@ -67,7 +67,11 @@ func Open(path string) (*Store, error) {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			return nil, err
 		}
-		dsn = "file:" + path + "?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)"
+		// secure_delete overwrites deleted content, so a deleted CV is really
+		// gone from the file. checkpoint_fullfsync makes a checkpoint reach the
+		// disk itself on macOS, not just the operating system's cache.
+		dsn = "file:" + path + "?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)" +
+			"&_pragma=secure_delete(1)&_pragma=checkpoint_fullfsync(1)"
 	}
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
@@ -90,6 +94,9 @@ func Open(path string) (*Store, error) {
 // added after the first release; existing rows get 0 until `server
 // reclassify` recomputes it.
 func migrate(db *sql.DB) error {
+	if _, err := db.Exec(matchSchema); err != nil {
+		return err
+	}
 	var n int
 	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('jobs') WHERE name = 'region_verified'`).Scan(&n); err != nil {
 		return err

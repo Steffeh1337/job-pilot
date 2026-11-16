@@ -4,6 +4,7 @@
 //	server [-config config.yaml] once         poll every source now, then print the funnel
 //	server [-config config.yaml] funnel [N]   print the funnel for the last N days (default 7)
 //	server [-config config.yaml] reclassify   re-run filters over stored jobs, then print the funnel
+//	server [-config config.yaml] calibrate    measure wording similarity on your CV and suggest fit settings
 package main
 
 import (
@@ -15,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"syscall"
 	"time"
@@ -89,6 +91,12 @@ func run() error {
 		}
 		fmt.Printf("%d jobs changed stage\n\n", n)
 		return printFunnel(ctx, st, 36500)
+	case "calibrate":
+		match, err := buildMatcher(ctx, cfg, st, log)
+		if err != nil {
+			return err
+		}
+		return printCalibration(ctx, match, cfg)
 	default:
 		return fmt.Errorf("unknown command %q", cmd)
 	}
@@ -99,14 +107,27 @@ func serve(ctx context.Context, cfg config.Config, st *store.Store, sched *sched
 	for _, src := range sched.Sources {
 		intervals[src.Name()] = src.Interval()
 	}
-	api := &httpapi.API{Store: st, Log: log, Intervals: intervals, WebDir: cfg.WebDir, Refresher: sched}
+	match, err := buildMatcher(ctx, cfg, st, log)
+	if err != nil {
+		return err
+	}
+	sched.AfterRound = indexNewJobs(match)
+	match.RequestSync() // index what is already stored
+
+	api := &httpapi.API{Store: st, Log: log, Intervals: intervals, WebDir: cfg.WebDir, Refresher: sched, Matcher: match}
 	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: api.Handler(), ReadHeaderTimeout: 10 * time.Second}
 
 	go sched.Run(ctx)
 
 	errc := make(chan error, 1)
 	go func() { errc <- srv.ListenAndServe() }()
-	log.Info("serving", "addr", cfg.HTTPAddr, "sources", len(sched.Sources), "tick", cfg.Tick)
+	db, err := filepath.Abs(cfg.DBPath)
+	if err != nil {
+		db = cfg.DBPath
+	}
+	// Your jobs and your CV profile live in this file. It is relative to where
+	// the server starts, so say exactly which one was opened.
+	log.Info("serving", "addr", cfg.HTTPAddr, "sources", len(sched.Sources), "tick", cfg.Tick, "database", db)
 
 	select {
 	case err := <-errc:

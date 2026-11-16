@@ -3,12 +3,15 @@ import type { JobQuery, Status } from '../api'
 export const PAGE_SIZE = 25
 
 const STATUSES: Status[] = ['match', 'rejected', 'all']
+/** The minimum-fit choices offered; anything else in the URL is ignored. */
+export const MIN_FITS = [0, 35, 55, 75]
 
 /** Reads the Jobs page filters from the URL, tolerating junk values. */
 export function queryFromParams(p: URLSearchParams): JobQuery & { page: number } {
   const status = p.get('status') as Status
   const page = Math.max(1, Number.parseInt(p.get('page') ?? '1', 10) || 1)
   const days = Number.parseInt(p.get('days') ?? '', 10)
+  const minFit = Number.parseInt(p.get('min_fit') ?? '', 10)
   return {
     status: STATUSES.includes(status) ? status : 'match',
     source: p.get('source') || undefined,
@@ -17,6 +20,8 @@ export function queryFromParams(p: URLSearchParams): JobQuery & { page: number }
     unverified: p.get('unverified') === '1',
     q: p.get('q') || undefined,
     days: days > 0 ? days : undefined,
+    sort: p.get('sort') === 'fit' ? 'fit' : 'new',
+    minFit: MIN_FITS.includes(minFit) ? minFit : 0,
     page,
     limit: PAGE_SIZE,
     offset: (page - 1) * PAGE_SIZE,
@@ -33,6 +38,8 @@ export function paramsFromQuery(q: Partial<JobQuery> & { page?: number }): URLSe
   if (q.unverified) p.set('unverified', '1')
   if (q.q) p.set('q', q.q)
   if (q.days) p.set('days', String(q.days))
+  if (q.sort === 'fit') p.set('sort', 'fit')
+  if (q.minFit) p.set('min_fit', String(q.minFit))
   if (q.page && q.page > 1) p.set('page', String(q.page))
   return p
 }

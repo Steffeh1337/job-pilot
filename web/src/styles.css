@@ -828,3 +828,315 @@ details.err pre {
     color: #04201d;
   }
 }
+
+/* ---------- fit ---------- */
+
+.fit {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.fit b {
+  font-size: 0.95rem;
+}
+
+.fit.strong {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.fit.good {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.fit.fair {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.fit.weak {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.job-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.fit-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin: 18px 0;
+}
+
+.fit-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.fit-head h3 {
+  margin: 0;
+}
+
+.skill-group + .skill-group {
+  margin-top: 8px;
+}
+
+.small {
+  font-size: 0.85rem;
+}
+
+/* ---------- chips ---------- */
+
+.chips {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 0.86rem;
+}
+
+.chip.core {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.chip.matched {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.chip.missing {
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--muted);
+}
+
+.chip button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.chip-star {
+  font-size: 0.95rem;
+}
+
+.chip-x {
+  opacity: 0.6;
+  font-size: 1.05rem;
+}
+
+.chip-x:hover {
+  opacity: 1;
+}
+
+.add-skill {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.add-skill input {
+  flex: 1;
+  max-width: 320px;
+}
+
+/* ---------- profile page ---------- */
+
+.card + section.card,
+.card + .note + section.card,
+section.card + section.card {
+  margin-top: 16px;
+}
+
+.checks {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.checks li {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.checks li::before {
+  content: none;
+}
+
+.checks li.ok strong::before {
+  content: '✓ ';
+  color: var(--ok);
+}
+
+.checks li.warn strong::before {
+  content: '! ';
+  color: var(--warn);
+}
+
+.status-actions {
+  display: flex;
+  gap: 8px;
+}
+
+details.setup {
+  margin-top: 14px;
+  background: var(--surface-2);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+details.setup summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+details.setup ol {
+  margin: 10px 0 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 6px;
+}
+
+code {
+  background: var(--surface-2);
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 0.85em;
+}
+
+details.setup code {
+  background: var(--surface);
+}
+
+.dropzone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 22px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.dropzone.dragging {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.profile-form {
+  display: grid;
+  gap: 14px;
+}
+
+.profile-form label,
+.profile-form .field {
+  display: grid;
+  gap: 4px;
+}
+
+.profile-form label > span,
+.profile-form .label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.profile-form input[type='text'],
+.profile-form input[type='number'],
+.profile-form textarea,
+.add-skill input {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 10px;
+  width: 100%;
+}
+
+.profile-form textarea {
+  resize: vertical;
+}
+
+.profile-form .row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.form-actions .spacer {
+  flex: 1;
+}
+
+.btn.danger {
+  color: var(--danger);
+}
+
+.cv-preview {
+  margin-top: 18px;
+}
+
+.cv-preview summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.cv-preview pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--surface-2);
+  border-radius: 8px;
+  padding: 12px;
+  max-height: 320px;
+  overflow-y: auto;
+  font-size: 0.82rem;
+}
+
+@media (max-width: 640px) {
+  .checks li {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}

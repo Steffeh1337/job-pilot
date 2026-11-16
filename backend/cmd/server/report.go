@@ -8,6 +8,8 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/Steffeh1337/job-pilot/backend/internal/config"
+	"github.com/Steffeh1337/job-pilot/backend/internal/matcher"
 	"github.com/Steffeh1337/job-pilot/backend/internal/store"
 )
 
@@ -46,5 +48,24 @@ func printFunnel(ctx context.Context, st *store.Store, days int) error {
 			fmt.Printf("  %-12s %d\n", k, rejects[k])
 		}
 	}
+	return nil
+}
+
+// printCalibration shows how similar the profile is to the indexed jobs and
+// the fit settings that follow from it.
+func printCalibration(ctx context.Context, m *matcher.Matcher, cfg config.Config) error {
+	c, err := m.Calibrate(ctx)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Wording similarity between your profile and %d indexed jobs (model %s):\n\n", c.Jobs, c.Model)
+	fmt.Printf("  min %.3f   p25 %.3f   median %.3f   p75 %.3f   p95 %.3f   max %.3f\n\n", c.Min, c.P25, c.Median, c.P75, c.P95, c.Max)
+	fmt.Println("Suggested settings. A job at or below the low value scores 0% on wording,")
+	fmt.Println("and one at or above the high value scores 100%:")
+	fmt.Println()
+	fmt.Println("  fit:")
+	fmt.Printf("    semantic_low: %.2f\n", c.SuggestedLow)
+	fmt.Printf("    semantic_high: %.2f\n\n", c.SuggestedHigh)
+	fmt.Printf("Currently: %.2f and %.2f.\n", cfg.Fit.SemanticLow, cfg.Fit.SemanticHigh)
 	return nil
 }

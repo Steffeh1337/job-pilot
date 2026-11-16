@@ -61,12 +61,56 @@ All filters are regular expressions in the `filter:` block of `config.yaml`. Edi
 
 The scheduler wakes every 15 minutes but skips any source polled more recently than its own interval. The Muse is not included: its API sits behind a Cloudflare challenge.
 
+## CV matching
+
+Upload your CV on the **Profile** page and jobs get a **fit score** (0-100) you can sort and filter by. Everything runs on this computer.
+
+- **Skills match (always on).** Your skills are read from the CV against a vocabulary of ~130 technologies (`backend/internal/skills/vocab.txt`; add your own lines). Each job's skills are read the same way, so the job drawer shows exactly which skills you have and which you lack. Skills marked ★ (used day to day) count more than ones you merely know, and a skill in the job title counts double.
+- **Wording similarity (needs Ollama).** A local embedding model compares how close a posting reads to your CV. It is combined with the skills score (60% / 40% by default).
+- **A local model reads the CV (needs Ollama).** It drafts your headline, seniority, years and summary. Anything it says is checked against the CV text: a skill or language that isn't actually written there is dropped. You can edit everything.
+
+Without Ollama you still get the skills match; the Profile page shows what is missing and how to add it.
+
+### Privacy
+
+- The CV is parsed in this process. PDFs and DOCX are read in memory and never written to a temp file.
+- The text is stored only in your local SQLite database (see *Where your data lives*), and **Delete CV** erases it from the file.
+- The only thing it is ever sent to is your own Ollama. The server **refuses to start** if `ollama.url` is not on this machine (set `allow_remote: true` to override, knowingly). The client never follows redirects and never uses a proxy.
+- Start Ollama with `OLLAMA_NO_CLOUD=1` so cloud models can never be used.
+- Nothing from the CV is logged.
+
+### Where your data lives
+
+Your jobs **and your profile** (the CV text, your skills, and the embeddings) are in one SQLite file, `backend/data/jobpilot.db`. It is git-ignored, and the server logs its absolute path when it starts. Because it is a file on disk, it survives restarts and powering the machine off.
+
+- Saving, editing or deleting the profile is flushed and synced to the main database file straight away, so a power cut right after uploading doesn't lose it.
+- Only the extracted text is kept, not the original PDF or DOCX.
+- **Delete CV** overwrites the text in the file (SQLite `secure_delete`), it does not just unlink the row.
+- To back it up, stop the server and copy the file, or run `sqlite3 backend/data/jobpilot.db ".backup 'backup.db'"`. A backup contains your CV text, so keep it private.
+- The path is relative to where the server starts. `make dev` always starts it from `backend/`, so use that.
+
+### Setting up Ollama
+
+```bash
+brew install ollama   # installs it but does not start it, and not at login
+make ollama           # run when you want CV matching; Ctrl-C stops it
+make ollama-pull      # once, in another terminal: ~274 MB wording model + ~4.7 GB CV-reading model
+```
+
+`make ollama` keeps it contained: reachable only from this machine, cloud models off (`OLLAMA_NO_CLOUD=1`), one model in memory at a time, and unloaded after two idle minutes, so it doesn't hold on to your RAM.
+
+Then press **Re-index jobs** on the Profile page (and **Re-read CV** if you already uploaded). Models are set under `ollama:` in the config; the scoring weights and the similarity calibration are under `fit:`.
+
+**Calibration.** Raw embedding similarity is never near zero: with the default model it ran about 0.62-0.86 on real jobs, with unrelated postings around 0.71 and engineering ones around 0.79. `semantic_low` and `semantic_high` (defaults 0.72 and 0.82, measured that way) map that range onto 0-100%. The right values depend on the model and on your CV, so once you have uploaded it, run `make calibrate` to measure them on your own data and copy the suggested settings into `config.yaml`.
+
 ## API
 
 `POST /api/refresh` polls every source now in the background (the Jobs page's **Refresh** button); `GET /api/refresh` reports progress and what it found. Sources polled in the last 5 minutes are skipped, so repeated clicks are harmless.
 
 `GET /api/health`, `/api/funnel?days=7`, `/api/polls`, `/api/jobs/{id}`, and
-`/api/jobs` with `status` (match, rejected, all), `source`, `reason`, `b2b=1`, `unverified=1`, `q`, `days`, `limit`, `offset`. `/api/matches?limit=50` is the older, simpler list.
+`/api/jobs` with `status` (match, rejected, all), `source`, `reason`, `b2b=1`, `unverified=1`, `q`, `days`, `sort` (new, fit), `min_fit`, `limit`, `offset`. With a CV uploaded, jobs carry a `fit` object.
+
+CV matching: `GET /api/profile`, `PUT /api/profile`, `DELETE /api/profile`, `POST /api/profile/cv` (multipart field `cv`), `POST /api/profile/reextract`, `GET /api/fit/status`, `POST /api/fit/sync`. `/api/matches?limit=50` is the older, simpler list.
 
 ## Layout
 
@@ -81,6 +125,11 @@ backend/
     store/           SQLite
     httpapi/         read-only JSON API
     config/          YAML + defaults
+    skills/          skills vocabulary and extractor
+    cv/              PDF / DOCX / text extraction
+    ollama/          local-only Ollama client
+    fit/             pure scoring
+    matcher/         profile, indexing and ranking
   testdata/          real API responses, trimmed
 web/                 React + Vite + TypeScript dashboard
 ```

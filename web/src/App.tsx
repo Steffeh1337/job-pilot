@@ -1,6 +1,7 @@
 import { Navigate, NavLink, Route, Routes } from 'react-router-dom'
 import { Jobs } from './pages/Jobs'
 import { Overview } from './pages/Overview'
+import { Profile } from './pages/Profile'
 import { Sources } from './pages/Sources'
 
 export function App() {
@@ -20,6 +21,7 @@ export function App() {
             Funnel
           </NavLink>
           <NavLink to="/jobs">Jobs</NavLink>
+          <NavLink to="/profile">Profile</NavLink>
           <NavLink to="/sources">Sources</NavLink>
         </nav>
       </header>
@@ -27,6 +29,7 @@ export function App() {
         <Routes>
           <Route path="/" element={<Overview />} />
           <Route path="/jobs" element={<Jobs />} />
+          <Route path="/profile" element={<Profile />} />
           <Route path="/sources" element={<Sources />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

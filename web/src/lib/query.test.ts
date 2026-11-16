@@ -17,14 +17,25 @@ describe('queryFromParams', () => {
   })
 
   it('ignores junk', () => {
-    const q = queryFromParams(new URLSearchParams('status=bogus&page=-4&days=abc'))
-    expect(q).toMatchObject({ status: 'match', page: 1, days: undefined })
+    const q = queryFromParams(new URLSearchParams('status=bogus&page=-4&days=abc&sort=sideways&min_fit=42'))
+    expect(q).toMatchObject({ status: 'match', page: 1, days: undefined, sort: 'new', minFit: 0 })
+  })
+
+  it('reads fit sorting and the minimum fit', () => {
+    expect(queryFromParams(new URLSearchParams('sort=fit&min_fit=55'))).toMatchObject({ sort: 'fit', minFit: 55 })
   })
 })
 
 describe('paramsFromQuery', () => {
   it('drops defaults so URLs stay short', () => {
     expect(paramsFromQuery({ status: 'match', page: 1 }).toString()).toBe('')
+  })
+
+  it('round-trips fit sorting', () => {
+    const p = paramsFromQuery({ status: 'match', sort: 'fit', minFit: 75 })
+    expect(p.toString()).toBe('sort=fit&min_fit=75')
+    expect(queryFromParams(p)).toMatchObject({ sort: 'fit', minFit: 75 })
+    expect(paramsFromQuery({ status: 'match', sort: 'new', minFit: 0 }).toString()).toBe('')
   })
 
   it('round-trips', () => {

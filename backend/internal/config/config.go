@@ -22,6 +22,41 @@ type Config struct {
 	Sources map[string]SourceConfig `yaml:"sources"`
 	Boards  Boards                  `yaml:"boards"`
 	Filter  Filter                  `yaml:"filter"`
+	Ollama  Ollama                  `yaml:"ollama"`
+	Fit     Fit                     `yaml:"fit"`
+}
+
+// Ollama configures the local model server used to read your CV and to
+// compare it with jobs. Your CV text is sent to this server and nowhere else,
+// so by default only an address on this machine is accepted.
+type Ollama struct {
+	// Enabled turns the local model on. Without it, CV matching still works
+	// from keywords alone.
+	Enabled bool   `yaml:"enabled"`
+	URL     string `yaml:"url"`
+	// AllowRemote permits a server on another machine. Your CV would be sent
+	// there; leave it off unless that is what you want.
+	AllowRemote bool `yaml:"allow_remote"`
+	// EmbedModel turns text into vectors for the semantic score.
+	EmbedModel string `yaml:"embed_model"`
+	// ChatModel reads the CV into a profile. Empty means use whichever
+	// suitable model is installed.
+	ChatModel string `yaml:"chat_model"`
+	// EmbedPrefix goes in front of every text before embedding. Unset uses the
+	// model's recommended prefix; set it to "" for none.
+	EmbedPrefix *string       `yaml:"embed_prefix"`
+	Timeout     time.Duration `yaml:"timeout"`
+}
+
+// Fit tunes the match score. Skill and semantic parts are weights relative to
+// each other.
+type Fit struct {
+	SkillWeight    float64 `yaml:"skill_weight"`
+	SemanticWeight float64 `yaml:"semantic_weight"`
+	// SemanticLow and SemanticHigh map raw embedding similarity onto 0..100%.
+	// Where "related" starts depends on the embedding model.
+	SemanticLow  float64 `yaml:"semantic_low"`
+	SemanticHigh float64 `yaml:"semantic_high"`
 }
 
 type SourceConfig struct {
@@ -141,6 +176,13 @@ func Default() Config {
 			"lever":      on,
 			"ashby":      on,
 		},
+		Ollama: Ollama{
+			Enabled:    true,
+			URL:        "http://127.0.0.1:11434",
+			EmbedModel: "nomic-embed-text",
+			Timeout:    3 * time.Minute,
+		},
+		Fit: Fit{SkillWeight: 0.6, SemanticWeight: 0.4, SemanticLow: 0.72, SemanticHigh: 0.82},
 		Filter: Filter{
 			RegionAllow: `(?i)\b(worldwide|world wide|anywhere|global|international|europe|european|eu|emea|cee|romania|any time ?zone)\b`,
 			// (?i:...) is scoped on purpose: US/UK/NA and Go must stay case-sensitive.
@@ -170,5 +212,38 @@ func Load(path string) (Config, error) {
 	if err := yaml.Unmarshal(b, &cfg); err != nil {
 		return cfg, fmt.Errorf("parse %s: %w", path, err)
 	}
+	if err := cfg.Validate(); err != nil {
+		return cfg, fmt.Errorf("%s: %w", path, err)
+	}
 	return cfg, nil
+}
+
+// Validate rejects settings that would give meaningless results.
+func (c Config) Validate() error {
+	f := c.Fit
+	switch {
+	case f.SkillWeight < 0 || f.SemanticWeight < 0 || f.SkillWeight+f.SemanticWeight <= 0:
+		return errors.New("fit: skill_weight and semantic_weight must not be negative, and one must be above 0")
+	case f.SemanticHigh <= f.SemanticLow:
+		return errors.New("fit: semantic_high must be greater than semantic_low")
+	case c.Ollama.Timeout <= 0:
+		return errors.New("ollama: timeout must be positive")
+	case c.Ollama.Enabled && strings.TrimSpace(c.Ollama.URL) == "":
+		return errors.New("ollama: url is required when ollama is enabled")
+	case c.Ollama.Enabled && strings.TrimSpace(c.Ollama.EmbedModel) == "":
+		return errors.New("ollama: embed_model is required when ollama is enabled")
+	}
+	return nil
+}
+
+// EmbedPrefix is the text put before every embedded string. When it is not
+// set, models that expect a prefix get theirs.
+func (o Ollama) EmbedPrefixOrDefault() string {
+	if o.EmbedPrefix != nil {
+		return *o.EmbedPrefix
+	}
+	if strings.HasPrefix(o.EmbedModel, "nomic-embed-text") {
+		return "clustering: "
+	}
+	return ""
 }

@@ -1,4 +1,4 @@
-.PHONY: dev once funnel reclassify test lint build web web-install web-build test-web
+.PHONY: dev once funnel reclassify test lint build web web-install web-build test-web ollama ollama-pull calibrate
 
 # Run the poller and API (uses backend/config.yaml if present).
 dev:
@@ -40,3 +40,20 @@ test-web:
 
 build:
 	cd backend && go build -o bin/server ./cmd/server
+
+# Local Ollama for CV matching, kept contained: only this machine can reach it,
+# cloud models are off, one model is held in memory, and it is unloaded after
+# two idle minutes. It is not started at login; run this when you want it, and
+# stop it with Ctrl-C.
+ollama:
+	OLLAMA_HOST=127.0.0.1:11434 OLLAMA_NO_CLOUD=1 OLLAMA_KEEP_ALIVE=2m OLLAMA_MAX_LOADED_MODELS=1 OLLAMA_NUM_PARALLEL=1 ollama serve
+
+# One-time model downloads (about 274 MB and 4.7 GB). Needs `make ollama` running.
+ollama-pull:
+	OLLAMA_HOST=127.0.0.1:11434 ollama pull nomic-embed-text
+	OLLAMA_HOST=127.0.0.1:11434 ollama pull qwen2.5:7b
+
+# Measure the wording-similarity scale on your own CV and jobs, and print the
+# fit settings to use. Needs a CV uploaded and Ollama running.
+calibrate:
+	cd backend && go run ./cmd/server calibrate

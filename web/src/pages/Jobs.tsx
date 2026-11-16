@@ -1,11 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { useCallback, useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { api, type Job, type Status } from '../api'
 import { Async, Empty } from '../components/Async'
+import { FitBadge } from '../components/FitBadge'
 import { JobDrawer } from '../components/JobDrawer'
 import { RefreshBanner } from '../components/RefreshBanner'
 import { RefreshButton } from '../components/RefreshButton'
+import { MIN_FIT_OPTIONS } from '../lib/fit'
 import { formatSalary, locationSummary, reasonLabel, relativeTime, sourceLabel } from '../lib/format'
 import { paramsFromQuery, queryFromParams, PAGE_SIZE } from '../lib/query'
 import { useRefresh } from '../lib/useRefresh'
@@ -69,8 +71,12 @@ export function Jobs() {
   const sources = (options.data?.rows ?? []).filter((r) => r.source !== 'TOTAL').map((r) => r.source)
   const reasons = Object.keys(options.data?.rejected ?? {})
 
+  // Fit sorting needs an uploaded CV.
+  const profile = useQuery({ queryKey: ['profile'], queryFn: api.profile, staleTime: 30_000 })
+  const hasProfile = profile.data?.exists === true
+
   const jobs = useQuery({
-    queryKey: ['jobs', q.status, q.source, q.reason, q.b2b, q.unverified, q.q, q.days, q.page],
+    queryKey: ['jobs', q.status, q.source, q.reason, q.b2b, q.unverified, q.q, q.days, q.sort, q.minFit, q.page],
     queryFn: () => api.jobs(q),
     placeholderData: (prev) => prev,
   })
@@ -143,6 +149,27 @@ export function Jobs() {
           <input type="checkbox" checked={q.unverified} onChange={(e) => update({ unverified: e.target.checked })} />
           Region unverified
         </label>
+        {hasProfile ? (
+          <>
+            <select aria-label="Sort by" value={q.sort} onChange={(e) => update({ sort: e.target.value === 'fit' ? 'fit' : 'new' })}>
+              <option value="new">Newest first</option>
+              <option value="fit">Best fit first</option>
+            </select>
+            <select aria-label="Minimum fit" value={q.minFit} onChange={(e) => update({ minFit: Number(e.target.value) })}>
+              {MIN_FIT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </>
+        ) : (
+          profile.isSuccess && (
+            <Link className="btn" to="/profile">
+              Upload your CV to rank by fit
+            </Link>
+          )
+        )}
         {q.days && (
           <button className="btn" onClick={() => update({ days: undefined })} title="Remove the time window">
             {q.days >= 3650 ? 'All time' : `Last ${q.days} d`} ✕
@@ -200,7 +227,10 @@ function JobRow({ job, isNew, onOpen }: { job: Job; isNew: boolean; onOpen: () =
           !job.region_verified && <span className="badge warn">Region unverified</span>
         )}
       </span>
-      <span className="job-side">{relativeTime(job.first_seen_at)}</span>
+      <span className="job-side">
+        {job.fit && <FitBadge fit={job.fit} />}
+        <span>{relativeTime(job.first_seen_at)}</span>
+      </span>
     </button>
   )
 }

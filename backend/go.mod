@@ -3,6 +3,7 @@ module github.com/Steffeh1337/job-pilot/backend
 go 1.26.10
 
 require (
+	github.com/ledongthuc/pdf v0.0.0-20261020125853-5e46805f718e
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.62.0
 )

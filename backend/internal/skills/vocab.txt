@@ -1,0 +1,153 @@
+# Skills vocabulary. One skill per line:  Canonical name | alias | alias | ...
+# Aliases match case-insensitively on word boundaries, except:
+#   =Alias   case-sensitive ("React" the library, not "react" the verb)
+#   ^Alias   case-sensitive, and ignored at the start of a sentence unless it
+#            looks like a list item ("Go, Rust" yes; "Go beyond" no)
+# The canonical name is NOT an alias unless it is repeated on the line.
+# Add your own lines; the index rebuilds automatically when this file changes.
+
+[Languages]
+Go | ^Go | golang
+TypeScript | typescript
+JavaScript | javascript | ecmascript | es6
+Python | python
+Java | java
+Kotlin | kotlin
+Scala | scala
+Rust | rust
+C# | c# | c sharp
+C++ | c++
+Ruby | ruby
+PHP | php
+Swift | =Swift
+Objective-C | objective-c
+Elixir | elixir
+Erlang | erlang
+Haskell | haskell
+Clojure | clojure
+Dart | dart
+Lua | lua
+Perl | perl
+SQL | sql
+Bash | bash | shell scripting
+PowerShell | powershell
+Solidity | solidity
+R | r programming | rstudio
+
+[Frontend]
+React | =React | react.js | reactjs
+Next.js | next.js | nextjs
+Vue | =Vue | vue.js | vuejs
+Angular | =Angular | angularjs
+Svelte | svelte | sveltekit
+Redux | redux
+React Native | react native
+Flutter | flutter
+HTML | html | html5
+CSS | css | css3
+Sass | sass | scss
+Tailwind CSS | tailwind | tailwindcss
+Webpack | webpack
+Vite | =Vite
+jQuery | jquery
+Storybook | storybook
+Three.js | three.js | threejs
+WebAssembly | webassembly | wasm
+
+[Backend]
+Node.js | node.js | nodejs | =Node
+Express.js | express.js | expressjs
+NestJS | nestjs | nest.js
+Fastify | fastify
+Deno | =Deno
+Django | django
+Flask | flask
+FastAPI | fastapi
+Spring Boot | spring boot | spring framework
+.NET | .net | dotnet | asp.net | .net core
+Rails | ruby on rails | =Rails
+Laravel | laravel
+Phoenix | phoenix framework
+gRPC | grpc
+GraphQL | graphql
+REST | =REST | restful | rest api | rest apis
+WebSockets | websocket | websockets
+Microservices | microservice | microservices
+Event-driven | event-driven | event driven | event sourcing
+OAuth | oauth | oauth2 | openid connect
+OpenAPI | openapi | swagger
+tRPC | trpc
+
+[Data stores]
+PostgreSQL | postgresql | postgres
+MySQL | mysql
+MariaDB | mariadb
+SQLite | sqlite
+MongoDB | mongodb
+Redis | redis
+Elasticsearch | elasticsearch | opensearch
+DynamoDB | dynamodb
+Cassandra | cassandra
+ClickHouse | clickhouse
+Snowflake | snowflake
+BigQuery | bigquery
+Kafka | kafka
+RabbitMQ | rabbitmq
+NATS | =NATS
+Prisma | prisma
+sqlc | sqlc
+
+[Cloud and DevOps]
+AWS | aws | amazon web services
+GCP | gcp | google cloud
+Azure | azure
+Docker | docker
+Kubernetes | kubernetes | k8s
+Terraform | terraform
+Pulumi | pulumi
+Ansible | ansible
+Helm | helm
+CI/CD | ci/cd | cicd | continuous integration | continuous delivery
+GitHub Actions | github actions
+GitLab CI | gitlab ci
+Jenkins | jenkins
+ArgoCD | argocd
+Linux | linux
+Nginx | nginx
+Prometheus | prometheus
+Grafana | grafana
+Datadog | datadog
+OpenTelemetry | opentelemetry
+Serverless | serverless
+AWS Lambda | aws lambda
+Cloudflare | cloudflare
+Vercel | vercel
+Git | git
+
+[Data and AI]
+Machine Learning | machine learning
+LLMs | =LLM | =LLMs | large language models
+RAG | =RAG | retrieval-augmented generation
+PyTorch | pytorch
+TensorFlow | tensorflow
+Pandas | pandas
+NumPy | numpy
+Spark | apache spark | pyspark
+Airflow | airflow
+dbt | =dbt
+
+[Testing and practices]
+Jest | jest
+Vitest | vitest
+Cypress | cypress
+Playwright | playwright
+TDD | =TDD | test-driven development
+Domain-Driven Design | domain-driven design | domain driven design | =DDD
+Agile | agile
+Scrum | scrum
+System Design | system design | distributed systems
+
+[Mobile]
+iOS | =iOS
+Android | =Android
+SwiftUI | swiftui

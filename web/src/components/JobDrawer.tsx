@@ -4,6 +4,7 @@ import { api, type Job } from '../api'
 import { formatSalary, locationSummary, reasonLabel, relativeTime, sourceLabel, REASON_HELP } from '../lib/format'
 import { safeUrl } from '../lib/url'
 import { Async } from './Async'
+import { FitSection } from './FitSection'
 
 export function JobDrawer({ id, onClose }: { id: number; onClose: () => void }) {
   const query = useQuery({ queryKey: ['job', id], queryFn: () => api.job(id) })
@@ -103,6 +104,8 @@ function Details({ job }: { job: Job }) {
           </a>
         </p>
       )}
+
+      {job.fit && <FitSection fit={job.fit} />}
 
       <h3 style={{ margin: '18px 0 8px' }}>Description</h3>
       {job.description ? (

@@ -32,8 +32,8 @@ type Search struct {
 	Offset     int
 }
 
-// Search returns one page of jobs and the total number matching the filters.
-func (s *Store) Search(ctx context.Context, q Search) ([]*domain.Job, int, error) {
+// where builds the SQL condition for the filters.
+func (q Search) where() (string, []any) {
 	var (
 		where []string
 		args  []any
@@ -69,10 +69,64 @@ func (s *Store) Search(ctx context.Context, q Search) ([]*domain.Job, int, error
 		where = append(where, "first_seen_at >= ?")
 		args = append(args, q.Since.Unix())
 	}
-	cond := ""
-	if len(where) > 0 {
-		cond = " WHERE " + strings.Join(where, " AND ")
+	if len(where) == 0 {
+		return "", args
 	}
+	return " WHERE " + strings.Join(where, " AND "), args
+}
+
+// SearchIDs returns the ids of every job matching the filters, newest first,
+// ignoring Limit and Offset. It lets a caller rank or sort by something the
+// database doesn't know, such as fit, and then fetch only one page.
+func (s *Store) SearchIDs(ctx context.Context, q Search) ([]int64, error) {
+	cond, args := q.where()
+	rows, err := s.db.QueryContext(ctx, "SELECT id FROM jobs"+cond+" ORDER BY first_seen_at DESC, id DESC", args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// JobsByIDs returns the jobs with the given ids, in that order. Unknown ids
+// are skipped.
+func (s *Store) JobsByIDs(ctx context.Context, ids []int64) ([]*domain.Job, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	marks := strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		args[i] = id
+	}
+	jobs, err := s.queryJobs(ctx, "SELECT "+jobCols+" FROM jobs WHERE id IN ("+marks+")", args...)
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[int64]*domain.Job, len(jobs))
+	for _, j := range jobs {
+		byID[j.ID] = j
+	}
+	out := make([]*domain.Job, 0, len(ids))
+	for _, id := range ids {
+		if j, ok := byID[id]; ok {
+			out = append(out, j)
+		}
+	}
+	return out, nil
+}
+
+// Search returns one page of jobs and the total number matching the filters.
+func (s *Store) Search(ctx context.Context, q Search) ([]*domain.Job, int, error) {
+	cond, args := q.where()
 
 	var total int
 	if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM jobs"+cond, args...).Scan(&total); err != nil {

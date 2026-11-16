@@ -295,3 +295,25 @@ func TestRefreshReportsFailuresPerSource(t *testing.T) {
 		t.Errorf("new jobs = %d, want 1", done.NewJobs)
 	}
 }
+
+func TestAfterRoundSeesTheResultsOfScheduledAndManualRounds(t *testing.T) {
+	ctx := context.Background()
+	src := &fakeSource{name: "a", interval: time.Hour, jobs: []*domain.Job{job("1"), job("2")}}
+	s, _, now := setup(t, src)
+	var rounds [][]PollResult
+	s.AfterRound = func(r []PollResult) { rounds = append(rounds, r) }
+
+	s.RunOnce(ctx)
+	if len(rounds) != 1 || rounds[0][0].NewJobs != 2 {
+		t.Fatalf("after a scheduled round: %+v", rounds)
+	}
+	*now = now.Add(10 * time.Minute)
+	s.Refresh(ctx)
+	if len(rounds) != 2 || rounds[1][0].NewJobs != 0 || rounds[1][0].Fetched != 2 {
+		t.Errorf("after a manual refresh: %+v", rounds)
+	}
+	s.RunOnce(ctx) // nothing is due: the round still reports, with the source skipped
+	if len(rounds) != 3 || !rounds[2][0].Skipped {
+		t.Errorf("a round where everything was skipped: %+v", rounds)
+	}
+}

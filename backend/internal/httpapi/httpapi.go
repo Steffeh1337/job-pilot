@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Steffeh1337/job-pilot/backend/internal/domain"
+	"github.com/Steffeh1337/job-pilot/backend/internal/fit"
 	"github.com/Steffeh1337/job-pilot/backend/internal/scheduler"
 	"github.com/Steffeh1337/job-pilot/backend/internal/store"
 )
@@ -36,6 +37,8 @@ type API struct {
 	WebDir string
 	// Refresher backs POST /api/refresh. Nil when no poller is running.
 	Refresher Refresher
+	// Matcher backs the CV profile and fit scores. Nil disables them.
+	Matcher Matcher
 }
 
 func (a *API) Handler() http.Handler {
@@ -50,6 +53,7 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("GET /api/polls", a.polls)
 	mux.HandleFunc("GET /api/refresh", a.refreshStatus)
 	mux.HandleFunc("POST /api/refresh", a.refreshStart)
+	a.registerMatching(mux)
 	if a.WebDir != "" {
 		if st, err := os.Stat(filepath.Join(a.WebDir, "index.html")); err == nil && !st.IsDir() {
 			mux.Handle("GET /", spa(a.WebDir))
@@ -124,6 +128,9 @@ type jobView struct {
 	PostedAt       time.Time `json:"posted_at"`
 	FirstSeen      time.Time `json:"first_seen_at"`
 	Description    string    `json:"description,omitempty"` // detail endpoint only
+	// Fit is how well the job matches the uploaded CV; absent without one, or
+	// when the job can't be scored.
+	Fit *fit.Fit `json:"fit,omitempty"`
 }
 
 func view(j *domain.Job, withDescription bool) jobView {
@@ -159,7 +166,9 @@ func (a *API) matches(w http.ResponseWriter, r *http.Request) {
 }
 
 // jobs searches stored jobs. Query parameters: status (match|rejected|all,
-// default match), source, reason, b2b=1, unverified=1, q, days, limit, offset.
+// default match), source, reason, b2b=1, unverified=1, q, days, sort (new|fit),
+// min_fit, limit, offset. sort=fit and min_fit need an uploaded CV; without
+// one they change nothing.
 func (a *API) jobs(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	q := store.Search{
@@ -178,15 +187,60 @@ func (a *API) jobs(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "status must be match, rejected or all"})
 		return
 	}
+	sortBy := qs.Get("sort")
+	if sortBy != "" && sortBy != "new" && sortBy != "fit" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "sort must be new or fit"})
+		return
+	}
+	minFit := intParam(r, "min_fit", 0, 0, 100)
 	if days := intParam(r, "days", 0, 0, 3650); days > 0 {
 		q.Since = a.now().AddDate(0, 0, -days)
 	}
-	jobs, total, err := a.Store.Search(r.Context(), q)
+
+	ctx := r.Context()
+	var (
+		jobs  []*domain.Job
+		total int
+		fits  map[int64]fit.Fit
+		err   error
+	)
+	if a.Matcher != nil && (sortBy == "fit" || minFit > 0) {
+		// Fit isn't a database column, so rank every match, then fetch one page.
+		var ids, ranked []int64
+		if ids, err = a.Store.SearchIDs(ctx, q); err == nil {
+			ranked, fits, err = a.Matcher.Rank(ctx, ids, minFit)
+		}
+		if err == nil {
+			total = len(ranked)
+			lo := min(q.Offset, len(ranked))
+			hi := min(lo+q.Limit, len(ranked))
+			jobs, err = a.Store.JobsByIDs(ctx, ranked[lo:hi])
+		}
+	} else {
+		jobs, total, err = a.Store.Search(ctx, q)
+		if err == nil && a.Matcher != nil {
+			ids := make([]int64, len(jobs))
+			for i, j := range jobs {
+				ids[i] = j.ID
+			}
+			fits, err = a.Matcher.Fits(ctx, ids)
+		}
+	}
 	if err != nil {
 		a.fail(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"total": total, "jobs": views(jobs)})
+	writeJSON(w, http.StatusOK, map[string]any{"total": total, "jobs": withFits(views(jobs), fits)})
+}
+
+// withFits attaches fit scores to job views.
+func withFits(vs []jobView, fits map[int64]fit.Fit) []jobView {
+	for i := range vs {
+		if f, ok := fits[vs[i].ID]; ok {
+			vs[i].Fit = &f
+		}
+	}
+	return vs
 }
 
 func (a *API) job(w http.ResponseWriter, r *http.Request) {
@@ -204,7 +258,18 @@ func (a *API) job(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
 		return
 	}
-	writeJSON(w, http.StatusOK, view(j, true))
+	v := view(j, true)
+	if a.Matcher != nil {
+		fits, err := a.Matcher.Fits(r.Context(), []int64{id})
+		if err != nil {
+			a.fail(w, err)
+			return
+		}
+		if f, ok := fits[id]; ok {
+			v.Fit = &f
+		}
+	}
+	writeJSON(w, http.StatusOK, v)
 }
 
 type pollView struct {

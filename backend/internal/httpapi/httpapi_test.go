@@ -134,7 +134,7 @@ func TestJobsEndpointFilters(t *testing.T) {
 		{"?status=all", 2, ""},
 		{"?status=rejected", 1, "Sales Lead"},
 		{"?status=rejected&reason=role", 1, "Sales Lead"},
-		{"?status=rejected&reason=stack", 0, ""},
+		{"?status=rejected&reason=seniority", 0, ""},
 		{"?status=all&q=acme", 1, "Senior Go Engineer"},
 		{"?b2b=1", 0, ""},
 		{"?status=all&source=remoteok&limit=1", 2, ""},

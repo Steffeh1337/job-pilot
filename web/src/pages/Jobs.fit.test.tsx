@@ -68,13 +68,57 @@ describe('Jobs page without a CV', () => {
   })
 
   it('does not flash the invitation while the profile is still loading', async () => {
+    let answer!: (r: Response) => void
     fakeApi({
-      'GET /api/profile': () => new Promise<Response>(() => {}), // never answers
+      'GET /api/profile': () => new Promise<Response>((resolve) => (answer = resolve)),
       'GET /api/jobs': () => json({ total: 1, jobs: [job(1, 'Go engineer')] }),
       'GET /api/funnel': funnel, 'GET /api/refresh': idle,
     })
     renderApp(<Jobs />, '/jobs')
-    await screen.findByText('Go engineer')
     expect(screen.queryByRole('link', { name: /upload your cv/i })).not.toBeInTheDocument()
+    answer(json(noProfile))
+    await screen.findByText('Go engineer')
+    expect(await screen.findByRole('link', { name: /upload your cv/i })).toBeInTheDocument()
+  })
+})
+
+describe('Jobs page: the default order', () => {
+  const sorts = (api: ReturnType<typeof fakeApi>) => api.to('GET', '/api/jobs').map((c) => new URL(c.path, 'http://x').searchParams.get('sort'))
+
+  it('ranks by fit by default once you have a CV, fetching the list once', async () => {
+    const api = setup(profileView)
+    renderApp(<Jobs />, '/jobs')
+    await screen.findByText('Go engineer')
+    expect(sorts(api)).toEqual(['fit'])
+    expect(screen.getByLabelText('Sort by')).toHaveValue('fit')
+  })
+
+  it('stays newest first without a CV', async () => {
+    const api = setup(noProfile)
+    renderApp(<Jobs />, '/jobs')
+    await screen.findByText('Go engineer')
+    expect(sorts(api)).not.toContain('fit')
+  })
+
+  it('respects an explicit choice of newest first', async () => {
+    const api = setup(profileView)
+    renderApp(<Jobs />, '/jobs?sort=new')
+    await screen.findByText('Go engineer')
+    expect(sorts(api)).toEqual([null]) // newest first is the server's own order, so no parameter is sent
+    expect(screen.getByLabelText('Sort by')).toHaveValue('new')
+  })
+
+  it('lets you switch back to newest first', async () => {
+    const api = setup(profileView)
+    renderApp(<Jobs />, '/jobs')
+    fireEvent.change(await screen.findByLabelText('Sort by'), { target: { value: 'new' } })
+    await waitFor(() => expect(sorts(api)).toEqual(['fit', null]))
+  })
+
+  it('keeps the tracker ordered by date applied, not fit', async () => {
+    const api = setup(profileView)
+    renderApp(<Jobs />, '/jobs?status=all&applied=1')
+    await screen.findByText('Go engineer')
+    expect(sorts(api)).not.toContain('fit')
   })
 })

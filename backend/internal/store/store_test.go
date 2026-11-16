@@ -37,7 +37,7 @@ func TestSearchFilters(t *testing.T) {
 	insert(t, st, domain.Job{Source: "a", ExternalID: "2", Title: "Backend Engineer", Company: "Beta", Stage: domain.StageSenior})
 	insert(t, st, domain.Job{Source: "b", ExternalID: "3", Title: "Sales Lead", Company: "Gamma 100%", Stage: domain.StageRegion, RejectReason: "role"})
 	insert(t, st, domain.Job{Source: "b", ExternalID: "4", Title: "Java Dev", Company: "Delta", Stage: domain.StageRegion, RejectReason: "role"})
-	insert(t, st, domain.Job{Source: "b", ExternalID: "5", Title: "Rust Dev", Company: "Eps", Stage: domain.StageRole, RejectReason: "stack"})
+	insert(t, st, domain.Job{Source: "b", ExternalID: "5", Title: "Rust Dev", Company: "Eps", Stage: domain.StageRole, RejectReason: "seniority"})
 
 	tests := []struct {
 		name  string

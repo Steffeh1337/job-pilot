@@ -86,26 +86,19 @@ func TestClassify(t *testing.T) {
 			wantReason: "role",
 		},
 		{
-			name:       "excluded language in title",
-			job:        domain.Job{Title: "Senior Java Engineer", Remote: true, Regions: []string{"Worldwide"}, Description: "Go"},
-			wantStage:  domain.StageRegion,
-			wantReason: "role",
+			name:      "the stack is not a filter: a Java role is a match, scoring decides",
+			job:       domain.Job{Title: "Senior Java Engineer", Remote: true, Regions: []string{"Worldwide"}, Description: "Spring Boot and Kafka."},
+			wantStage: domain.StageSenior,
 		},
 		{
-			name:       "lowercase 'go' in prose is not the language",
-			job:        domain.Job{Title: "Senior Software Engineer", Remote: true, Regions: []string{"Worldwide"}, Description: "We want to go to market quickly."},
-			wantStage:  domain.StageRole,
-			wantReason: "stack",
-		},
-		{
-			name:      "stack found in tags",
-			job:       domain.Job{Title: "Senior Software Engineer", Remote: true, Regions: []string{"Worldwide"}, Tags: []string{"golang"}},
+			name:      "a posting that names no technology at all is still a match",
+			job:       domain.Job{Title: "Senior Software Engineer", Remote: true, Regions: []string{"Worldwide"}, Description: "We want to go to market quickly."},
 			wantStage: domain.StageSenior,
 		},
 		{
 			name:       "junior title is dropped last",
 			job:        domain.Job{Title: "Junior Go Developer", Remote: true, Regions: []string{"Worldwide"}, Description: "Go"},
-			wantStage:  domain.StageStack,
+			wantStage:  domain.StageRole,
 			wantReason: "seniority",
 		},
 		{
@@ -346,8 +339,43 @@ func TestRegionVerified(t *testing.T) {
 
 func TestNewFilterRejectsBadRegex(t *testing.T) {
 	c := config.Default().Filter
-	c.Stack = "("
+	c.TitleInclude = "("
 	if _, err := NewFilter(c); err == nil {
 		t.Fatal("expected an error for an invalid regex")
+	}
+}
+
+// Any software engineering title matches whatever it is written in: the
+// person's own profile decides how well each one fits.
+func TestEngineeringTitlesMatchInAnyStack(t *testing.T) {
+	f := testFilter(t)
+	for _, title := range []string{
+		"Senior PHP Developer", "Senior Ruby on Rails Engineer", "Senior C++ Engineer", "Senior C# / .NET Developer",
+		"Senior iOS Engineer", "Senior Android Developer", "Senior Mobile Engineer", "Senior Embedded Software Engineer",
+		"Senior Machine Learning Engineer", "Senior WordPress Developer", "Senior Salesforce Developer", "Senior Rust Engineer",
+		"Senior Python Backend Developer", "Senior Data Engineer",
+		"Staff Engineers (Elixir) | NYC or REMOTE (US, Europe)", "Senior Backend Developers", "Tech Lead",
+		"Senior Independent Software Developer ($90-$170/hr)", // "/hr" is an hourly rate, not Human Resources
+	} {
+		j := domain.Job{Title: title, Remote: true, Regions: []string{"Worldwide"}}
+		f.Classify(&j)
+		if j.Stage != domain.StageSenior {
+			t.Errorf("%q: stage %v, reason %q; want a match", title, j.Stage, j.RejectReason)
+		}
+	}
+}
+
+// What is not software engineering still doesn't match.
+func TestNonEngineeringTitlesAreStillDropped(t *testing.T) {
+	f := testFilter(t)
+	for _, title := range []string{
+		"Senior Sales Engineer", "Account Executive", "Senior Product Designer", "Customer Support Engineer",
+		"Technical Recruiter", "HR Business Partner", "Engineering Manager", "Senior Data Scientist", "Product Manager", "QA Engineer",
+	} {
+		j := domain.Job{Title: title, Remote: true, Regions: []string{"Worldwide"}}
+		f.Classify(&j)
+		if j.RejectReason != "role" {
+			t.Errorf("%q: stage %v, reason %q; want it dropped as not a software engineering role", title, j.Stage, j.RejectReason)
+		}
 	}
 }

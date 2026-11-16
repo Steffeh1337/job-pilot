@@ -85,7 +85,6 @@ type Filter struct {
 	DescriptionDeny  string `yaml:"description_deny"`
 	TitleInclude     string `yaml:"title_include"`
 	TitleExclude     string `yaml:"title_exclude"`
-	Stack            string `yaml:"stack"`
 	SeniorityExclude string `yaml:"seniority_exclude"`
 	// B2B matches wording that says the engagement is contract, freelance,
 	// independent or short-term work. It runs on the description after
@@ -188,9 +187,8 @@ func Default() Config {
 			// (?i:...) is scoped on purpose: US/UK/NA and Go must stay case-sensitive.
 			RegionDeny:       `(?i:\b(usa|united states|u\.s\.|canada|united kingdom|australia|new zealand|india|brazil|mexico|latam|latin america|apac|asia|africa|north america|americas|germany|france|spain|italy|netherlands|poland|singapore|japan)\b)|\b(US|UK|NA)\b`,
 			DescriptionDeny:  descriptionDeny,
-			TitleInclude:     `(?i)\b(engineer|developer|programmer|software|backend|back-end|full[- ]?stack|architect|sre|devops|platform)\b`,
-			TitleExclude:     `(?i)\b(sales|account (executive|manager)|marketing|recruit\w*|designer|support|customer|hr|legal|finance|accountant|writer|content|analyst|qa|quality|test|mobile|ios|android|embedded|wordpress|php|ruby|java|\.net|c#|c\+\+|salesforce|sap|engineering manager|product manager|project manager|data scientist|machine learning|ml)\b`,
-			Stack:            `(?i:\b(golang|typescript|react|node\.?js|next\.?js)\b)|\bGo\b`,
+			TitleInclude:     `(?i)\b(engineers?|developers?|programmers?|software|backend|back-end|full[- ]?stack|architect|sre|devops|platform|tech(?:nical)? lead)\b`,
+			TitleExclude:     `(?i)\b(sales|account (executive|manager)|marketing|recruit\w*|designer|support|customer|(?-i:HR)|legal|finance|accountant|writer|content|analyst|qa|quality|test|engineering manager|product manager|project manager|data scientist)\b`,
 			SeniorityExclude: `(?i)\b(junior|jr\.?|intern(ship)?|graduate|entry[- ]level|trainee|apprentice|mid[- ]level|middle|associate)\b`,
 			B2B:              b2bPattern,
 			B2BIgnore:        b2bIgnore,

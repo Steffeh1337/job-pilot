@@ -6,7 +6,6 @@ export interface FunnelRow {
   unique: number
   region: number
   role: number
-  stack: number
   senior: number
   b2b: number
 }

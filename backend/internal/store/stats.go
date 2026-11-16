@@ -17,7 +17,6 @@ type FunnelRow struct {
 	Unique int    `json:"unique"`
 	Region int    `json:"region"`
 	Role   int    `json:"role"`
-	Stack  int    `json:"stack"`
 	Senior int    `json:"senior"`
 	B2B    int    `json:"b2b"` // subset of Senior that mentions B2B/contract
 }
@@ -31,12 +30,11 @@ SELECT source,
 	COALESCE(SUM(stage >= ?), 0),
 	COALESCE(SUM(stage >= ?), 0),
 	COALESCE(SUM(stage >= ?), 0),
-	COALESCE(SUM(stage >= ?), 0),
 	COALESCE(SUM(stage >= ? AND b2b = 1), 0)
 FROM jobs WHERE first_seen_at >= ?
 GROUP BY source ORDER BY source`,
 		int(domain.StageUnique), int(domain.StageRegion), int(domain.StageRole),
-		int(domain.StageStack), int(domain.StageSenior), int(domain.StageSenior), since.Unix())
+		int(domain.StageSenior), int(domain.StageSenior), since.Unix())
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +44,7 @@ GROUP BY source ORDER BY source`,
 	var out []FunnelRow
 	for rows.Next() {
 		var r FunnelRow
-		if err := rows.Scan(&r.Source, &r.New, &r.Unique, &r.Region, &r.Role, &r.Stack, &r.Senior, &r.B2B); err != nil {
+		if err := rows.Scan(&r.Source, &r.New, &r.Unique, &r.Region, &r.Role, &r.Senior, &r.B2B); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -54,7 +52,6 @@ GROUP BY source ORDER BY source`,
 		total.Unique += r.Unique
 		total.Region += r.Region
 		total.Role += r.Role
-		total.Stack += r.Stack
 		total.Senior += r.Senior
 		total.B2B += r.B2B
 	}

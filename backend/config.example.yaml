@@ -40,7 +40,8 @@ boards:
 # them, run `server reclassify` to re-judge everything already collected.
 # filter:
 #   region_allow: ...
-#   stack: '(?i:\b(golang|typescript|react)\b)|\bGo\b'
+#   title_exclude: '(?i)\b(sales|recruit\w*|designer|support)\b'   # roles that aren't software engineering
+# There is no stack filter: how well a job fits your technology is scored from your CV.
 
 # CV matching. Your CV text is only ever sent to this Ollama, so by default
 # only an address on this machine is accepted. Without Ollama (or with

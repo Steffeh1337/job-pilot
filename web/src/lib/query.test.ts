@@ -8,17 +8,17 @@ describe('queryFromParams', () => {
 
   it('reads every filter', () => {
     const q = queryFromParams(
-      new URLSearchParams('status=rejected&source=lever&reason=stack&b2b=1&unverified=1&q=go&days=30&page=3'),
+      new URLSearchParams('status=rejected&source=lever&reason=seniority&b2b=1&unverified=1&q=go&days=30&page=3'),
     )
     expect(q).toMatchObject({
-      status: 'rejected', source: 'lever', reason: 'stack', b2b: true, unverified: true, q: 'go', days: 30, page: 3,
+      status: 'rejected', source: 'lever', reason: 'seniority', b2b: true, unverified: true, q: 'go', days: 30, page: 3,
       offset: 2 * PAGE_SIZE,
     })
   })
 
   it('ignores junk', () => {
     const q = queryFromParams(new URLSearchParams('status=bogus&page=-4&days=abc&sort=sideways&min_fit=42'))
-    expect(q).toMatchObject({ status: 'match', page: 1, days: undefined, sort: 'new', minFit: 0 })
+    expect(q).toMatchObject({ status: 'match', page: 1, days: undefined, sort: undefined, minFit: 0 })
   })
 
   it('reads fit sorting and the minimum fit', () => {
@@ -35,7 +35,10 @@ describe('paramsFromQuery', () => {
     const p = paramsFromQuery({ status: 'match', sort: 'fit', minFit: 75 })
     expect(p.toString()).toBe('sort=fit&min_fit=75')
     expect(queryFromParams(p)).toMatchObject({ sort: 'fit', minFit: 75 })
-    expect(paramsFromQuery({ status: 'match', sort: 'new', minFit: 0 }).toString()).toBe('')
+    // An explicit choice of newest-first is kept, because the page's own default is best fit.
+    expect(paramsFromQuery({ status: 'match', sort: 'new', minFit: 0 }).toString()).toBe('sort=new')
+    expect(paramsFromQuery({ status: 'match', minFit: 0 }).toString()).toBe('')
+    expect(queryFromParams(new URLSearchParams('sort=new')).sort).toBe('new')
   })
 
   it('round-trips', () => {

@@ -155,7 +155,6 @@ function SourceTable({ data, days }: { data: FunnelResponse; days: number }) {
             <th>Unique</th>
             <th>Region</th>
             <th>Role</th>
-            <th>Stack</th>
             <th>Match</th>
             <th>B2B</th>
             <th>Yield</th>
@@ -171,7 +170,6 @@ function SourceTable({ data, days }: { data: FunnelResponse; days: number }) {
               <td className="num">{r.unique.toLocaleString()}</td>
               <td className="num">{r.region.toLocaleString()}</td>
               <td className="num">{r.role.toLocaleString()}</td>
-              <td className="num">{r.stack.toLocaleString()}</td>
               <td className="num">
                 <strong>{r.senior.toLocaleString()}</strong>
               </td>
@@ -189,7 +187,6 @@ function SourceTable({ data, days }: { data: FunnelResponse; days: number }) {
             <td className="num">{total.unique.toLocaleString()}</td>
             <td className="num">{total.region.toLocaleString()}</td>
             <td className="num">{total.role.toLocaleString()}</td>
-            <td className="num">{total.stack.toLocaleString()}</td>
             <td className="num">{total.senior.toLocaleString()}</td>
             <td className="num">{total.b2b.toLocaleString()}</td>
             <td className="num">{formatPct(pct(total.senior, total.new))}</td>

@@ -233,7 +233,7 @@ func TestSearchIDsAndJobsByIDs(t *testing.T) {
 	for _, id := range []string{"1", "2", "3"} {
 		all = append(all, insert(t, st, domain.Job{Source: "s", ExternalID: id, Title: "T" + id, Stage: domain.StageSenior}))
 	}
-	insert(t, st, domain.Job{Source: "s", ExternalID: "x", Title: "dropped", Stage: domain.StageRole, RejectReason: "stack"})
+	insert(t, st, domain.Job{Source: "s", ExternalID: "x", Title: "dropped", Stage: domain.StageRole, RejectReason: "seniority"})
 
 	ids, err := st.SearchIDs(ctx, Search{})
 	if err != nil || len(ids) != 3 {

@@ -28,7 +28,8 @@ sources:
 boards:
   greenhouse: [gitlab]
 filter:
-  stack: '(?i)\brust\b'
+  title_exclude: '(?i)\brust\b'
+  stack: '(?i)\bgo\b'
 `
 	if err := os.WriteFile(path, []byte(yml), 0o600); err != nil {
 		t.Fatal(err)
@@ -43,7 +44,8 @@ filter:
 	if !cfg.Sources["remoteok"].Enabled || cfg.DBPath == "" || cfg.Filter.TitleInclude == "" {
 		t.Errorf("unset values lost their defaults: %+v", cfg)
 	}
-	if cfg.Filter.Stack != `(?i)\brust\b` || len(cfg.Boards.Greenhouse) != 1 {
+	// The retired `stack` key from an older config is ignored, not an error.
+	if cfg.Filter.TitleExclude != `(?i)\brust\b` || len(cfg.Boards.Greenhouse) != 1 {
 		t.Errorf("filter/boards not loaded: %+v", cfg)
 	}
 }

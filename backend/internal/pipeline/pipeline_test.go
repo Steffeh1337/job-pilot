@@ -95,13 +95,16 @@ func TestReclassifyAppliesNewFilters(t *testing.T) {
 	if _, err := p.Ingest(ctx, []*domain.Job{j}); err != nil {
 		t.Fatal(err)
 	}
+	if matches, _ := st.Matches(ctx, 10); len(matches) != 1 {
+		t.Fatalf("a Rust role matches under the default filters, got %v", matches)
+	}
 	if n, _ := p.Reclassify(ctx); n != 0 {
 		t.Fatalf("unchanged filters changed %d jobs", n)
 	}
 
-	// Widen the stack filter to include Rust and re-run over stored data.
+	// Narrow the role filter to exclude Rust and re-run over stored data.
 	c := config.Default().Filter
-	c.Stack += `|(?i:\brust\b)`
+	c.TitleExclude += `|(?i:\brust\b)`
 	f, err := NewFilter(c)
 	if err != nil {
 		t.Fatal(err)
@@ -110,9 +113,8 @@ func TestReclassifyAppliesNewFilters(t *testing.T) {
 	if err != nil || n != 1 {
 		t.Fatalf("reclassify changed %d (err %v), want 1", n, err)
 	}
-	matches, err := st.Matches(ctx, 10)
-	if err != nil || len(matches) != 1 || matches[0].Title != "Senior Rust Engineer" {
-		t.Fatalf("matches = %v (err %v)", matches, err)
+	if matches, err := st.Matches(ctx, 10); err != nil || len(matches) != 0 {
+		t.Fatalf("matches = %v (err %v), want none", matches, err)
 	}
 }
 

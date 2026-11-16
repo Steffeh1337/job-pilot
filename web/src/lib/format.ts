@@ -20,7 +20,6 @@ const REASON_LABELS: Record<string, string> = {
   region: 'Region',
   duplicate: 'Duplicate',
   role: 'Role',
-  stack: 'Stack',
   seniority: 'Seniority',
 }
 
@@ -33,8 +32,7 @@ export const REASON_HELP: Record<string, string> = {
   'not remote': 'Listed as on-site or hybrid',
   region: 'Remote, but restricted to places outside Romania/Europe',
   duplicate: 'Same company and title already seen from another source',
-  role: 'Title is not an engineering role we want',
-  stack: 'No Go, TypeScript, React or Node mention',
+  role: 'Title is not a software engineering role (sales, design, support, management…)',
   seniority: 'Title says junior, intern or mid-level',
 }
 

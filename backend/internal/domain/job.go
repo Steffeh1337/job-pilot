@@ -15,12 +15,12 @@ const (
 	StageDuplicate Stage = iota // same company+title already seen from another source
 	StageUnique                 // first time this role was seen
 	StageRegion                 // remote and open to someone in the configured region
-	StageRole                   // title looks like an engineering role we want
-	StageStack                  // mentions the target stack
+	StageRole                   // title looks like a software engineering role
+	_                           // 4 was the target-stack stage, now gone. The number stays unused so stored stages keep their meaning.
 	StageSenior                 // title is not junior/mid level; this is a "match"
 )
 
-var stageNames = [...]string{"duplicate", "unique", "region", "role", "stack", "senior"}
+var stageNames = [...]string{"duplicate", "unique", "region", "role", "retired", "senior"}
 
 func (s Stage) String() string {
 	if s < 0 || int(s) >= len(stageNames) {

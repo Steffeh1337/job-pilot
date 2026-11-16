@@ -2,7 +2,7 @@ import type { FunnelRow } from '../api'
 import { formatPct, pct, sourceRows, stepsFor, totalRow } from './funnel'
 
 const row = (over: Partial<FunnelRow> = {}): FunnelRow => ({
-  source: 'x', new: 200, unique: 100, region: 50, role: 20, stack: 10, senior: 5, b2b: 1, ...over,
+  source: 'x', new: 200, unique: 100, region: 50, role: 20, senior: 5, b2b: 1, ...over,
 })
 
 describe('pct', () => {
@@ -13,15 +13,15 @@ describe('pct', () => {
 describe('stepsFor', () => {
   it('reports survival against the previous step and against everything seen', () => {
     const steps = stepsFor(row())
-    expect(steps.map((s) => s.count)).toEqual([200, 100, 50, 20, 10, 5])
+    expect(steps.map((s) => s.count)).toEqual([200, 100, 50, 20, 5])
     expect(steps[0]!.ofPrev).toBeNull()
     expect(steps[1]!.ofPrev).toBe(50)
     expect(steps[3]!.ofPrev).toBe(40)
-    expect(steps[5]!.ofFirst).toBe(2.5)
+    expect(steps[4]!.ofFirst).toBe(2.5)
   })
 
   it('handles a source with nothing in it', () => {
-    const steps = stepsFor(row({ new: 0, unique: 0, region: 0, role: 0, stack: 0, senior: 0 }))
+    const steps = stepsFor(row({ new: 0, unique: 0, region: 0, role: 0, senior: 0 }))
     expect(steps.every((s) => s.count === 0 && s.ofFirst === 0)).toBe(true)
     expect(steps[1]!.ofPrev).toBe(0)
   })

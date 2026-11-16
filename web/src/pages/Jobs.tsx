@@ -84,10 +84,15 @@ export function Jobs() {
   const profile = useQuery({ queryKey: ['profile'], queryFn: api.profile, staleTime: 30_000 })
   const hasProfile = profile.data?.exists === true
 
+  // With a CV the best fit comes first: that is how you decide where to apply.
+  // The tracker is the exception, which lists what you applied to by date.
+  // Wait for the profile so the list is fetched once, in the right order.
+  const sort = q.sort ?? (hasProfile && q.applied !== 'only' ? 'fit' : 'new')
   const jobs = useQuery({
-    queryKey: ['jobs', q.status, q.source, q.reason, q.b2b, q.unverified, q.applied, q.q, q.days, q.sort, q.minFit, q.page],
-    queryFn: () => api.jobs(q),
+    queryKey: ['jobs', q.status, q.source, q.reason, q.b2b, q.unverified, q.applied, q.q, q.days, sort, q.minFit, q.page],
+    queryFn: () => api.jobs({ ...q, sort }),
     placeholderData: (prev) => prev,
+    enabled: !profile.isPending,
   })
 
   return (
@@ -169,7 +174,7 @@ export function Jobs() {
         </label>
         {hasProfile ? (
           <>
-            <select aria-label="Sort by" value={q.sort} onChange={(e) => update({ sort: e.target.value === 'fit' ? 'fit' : 'new' })}>
+            <select aria-label="Sort by" value={sort} onChange={(e) => update({ sort: e.target.value === 'fit' ? 'fit' : 'new' })}>
               <option value="new">Newest first</option>
               <option value="fit">Best fit first</option>
             </select>

@@ -21,7 +21,8 @@ export function queryFromParams(p: URLSearchParams): JobQuery & { page: number }
     applied: p.get('applied') === '1' ? 'only' : p.get('applied') === '0' ? 'hide' : undefined,
     q: p.get('q') || undefined,
     days: days > 0 ? days : undefined,
-    sort: p.get('sort') === 'fit' ? 'fit' : 'new',
+    // Unset means "the page decides": best fit first once there is a CV.
+    sort: p.get('sort') === 'fit' ? 'fit' : p.get('sort') === 'new' ? 'new' : undefined,
     minFit: MIN_FITS.includes(minFit) ? minFit : 0,
     page,
     limit: PAGE_SIZE,
@@ -40,7 +41,7 @@ export function paramsFromQuery(q: Partial<JobQuery> & { page?: number }): URLSe
   if (q.applied) p.set('applied', q.applied === 'only' ? '1' : '0')
   if (q.q) p.set('q', q.q)
   if (q.days) p.set('days', String(q.days))
-  if (q.sort === 'fit') p.set('sort', 'fit')
+  if (q.sort) p.set('sort', q.sort)
   if (q.minFit) p.set('min_fit', String(q.minFit))
   if (q.page && q.page > 1) p.set('page', String(q.page))
   return p

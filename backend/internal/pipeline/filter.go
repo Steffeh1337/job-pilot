@@ -14,7 +14,7 @@ type Filter struct {
 	regionAllow, regionDeny    *regexp.Regexp
 	descriptionDeny            *regexp.Regexp
 	titleInclude, titleExclude *regexp.Regexp
-	stack, seniorityExclude    *regexp.Regexp
+	seniorityExclude           *regexp.Regexp
 	b2b, b2bIgnore, b2bTitle   *regexp.Regexp
 }
 
@@ -30,7 +30,6 @@ func NewFilter(c config.Filter) (*Filter, error) {
 		{&f.descriptionDeny, "description_deny", c.DescriptionDeny},
 		{&f.titleInclude, "title_include", c.TitleInclude},
 		{&f.titleExclude, "title_exclude", c.TitleExclude},
-		{&f.stack, "stack", c.Stack},
 		{&f.seniorityExclude, "seniority_exclude", c.SeniorityExclude},
 		{&f.b2b, "b2b", c.B2B},
 		{&f.b2bIgnore, "b2b_ignore", c.B2BIgnore},
@@ -74,12 +73,6 @@ func (f *Filter) Classify(j *domain.Job) {
 		return
 	}
 	j.Stage = domain.StageRole
-
-	if !f.stack.MatchString(j.Title + "\n" + strings.Join(j.Tags, " ") + "\n" + j.Description) {
-		j.RejectReason = "stack"
-		return
-	}
-	j.Stage = domain.StageStack
 
 	if f.seniorityExclude.MatchString(j.Title) {
 		j.RejectReason = "seniority"

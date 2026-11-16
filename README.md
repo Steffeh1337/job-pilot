@@ -37,8 +37,7 @@ Each distinct job is judged once, when first seen, and keeps the furthest stage 
 | `new` | first time this source+id was seen |
 | `unique` | no other source already has the same company+title |
 | `region` | remote, and open to someone in Romania (worldwide / Europe / EU / EMEA / Romania) |
-| `role` | title looks like an engineering role and isn't sales/design/Java/etc. |
-| `stack` | Go, TypeScript, React or Node appears in the title, tags or description |
+| `role` | title looks like a software engineering role, in any language or stack (not sales, design, support, QA, management…) |
 | `senior` | title isn't junior/intern/mid-level. **This is a match.** |
 | `b2b` | subset of matches that read as contract-style work: B2B, contract, contractor, freelance, independent, short-term or temporary, project-based, hourly/day rates, or a source employment type of Contract/Freelance/Temporary. Boilerplate such as "B2B SaaS", "smart contract" and "employees and contractors" is ignored |
 
@@ -46,6 +45,8 @@ Each distinct job is judged once, when first seen, and keeps the furthest stage 
 server funnel 7        # last 7 days, per source, plus why jobs were dropped
 server reclassify      # re-run the filters over stored jobs after editing them
 ```
+
+**The funnel decides eligibility, your CV decides fit.** The filters don't look at technology at all: a Java, Python or Rust role matches like any other, so changing your CV never changes which jobs are in the list. What it changes is the order: once a CV is uploaded the list is sorted by **fit score** (best first by default), and you can filter by minimum fit. Contract/B2B work is a flag and a checkbox filter, never a reason to drop a job.
 
 All filters are regular expressions in the `filter:` block of `config.yaml`. Edit, `reclassify`, and compare, with no need to re-fetch.
 

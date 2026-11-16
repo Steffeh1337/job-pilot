@@ -4,8 +4,7 @@ export const STEPS = [
   { key: 'new', label: 'Seen' },
   { key: 'unique', label: 'Unique' },
   { key: 'region', label: 'Remote, open to Romania' },
-  { key: 'role', label: 'Engineering role' },
-  { key: 'stack', label: 'Go / TypeScript stack' },
+  { key: 'role', label: 'Software engineering role' },
   { key: 'senior', label: 'Senior match' },
 ] as const
 
@@ -44,7 +43,7 @@ export function stepsFor(row: FunnelRow): Step[] {
 export function totalRow(rows: FunnelRow[]): FunnelRow {
   return (
     rows.find((r) => r.source === 'TOTAL') ?? {
-      source: 'TOTAL', new: 0, unique: 0, region: 0, role: 0, stack: 0, senior: 0, b2b: 0,
+      source: 'TOTAL', new: 0, unique: 0, region: 0, role: 0, senior: 0, b2b: 0,
     }
   )
 }

@@ -28,10 +28,10 @@ func printFunnel(ctx context.Context, st *store.Store, days int) error {
 
 	fmt.Printf("Funnel: distinct jobs first seen in the last %d day(s)\n\n", days)
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.AlignRight)
-	fmt.Fprintln(w, "source\tnew\tunique\tregion\trole\tstack\tsenior\tb2b\t")
+	fmt.Fprintln(w, "source\tnew\tunique\tregion\trole\tsenior\tb2b\t")
 	for _, r := range rows {
-		fmt.Fprintf(w, "%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t\n",
-			r.Source, r.New, r.Unique, r.Region, r.Role, r.Stack, r.Senior, r.B2B)
+		fmt.Fprintf(w, "%s\t%d\t%d\t%d\t%d\t%d\t%d\t\n",
+			r.Source, r.New, r.Unique, r.Region, r.Role, r.Senior, r.B2B)
 	}
 	if err := w.Flush(); err != nil {
 		return err

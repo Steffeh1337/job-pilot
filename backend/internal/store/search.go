@@ -32,7 +32,7 @@ const (
 type Search struct {
 	Status     Status
 	Source     string
-	Reason     string // exact reject reason, e.g. "stack"
+	Reason     string // exact reject reason, e.g. "seniority"
 	B2BOnly    bool
 	Unverified bool // only jobs whose region was not positively confirmed
 	Applied    AppliedFilter

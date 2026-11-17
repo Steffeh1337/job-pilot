@@ -180,6 +180,24 @@ func TestChatJSON(t *testing.T) {
 	}
 }
 
+func TestChatReturnsPlainText(t *testing.T) {
+	var req map[string]any
+	c := newTest(t, func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&req)
+		w.Write([]byte(`{"message":{"role":"assistant","content":"  Hello there.\n"}}`))
+	})
+	got, err := c.Chat(context.Background(), "qwen2.5:7b", "be brief", "hi")
+	if err != nil || got != "Hello there." {
+		t.Fatalf("got %q, %v", got, err)
+	}
+	if _, set := req["format"]; set {
+		t.Error("a plain answer must not be constrained to a JSON schema")
+	}
+	if opts := req["options"].(map[string]any); opts["temperature"] == float64(0) {
+		t.Errorf("a plain answer should not use temperature 0, options = %v", opts)
+	}
+}
+
 func TestChatJSONRejectsNonJSON(t *testing.T) {
 	c := newTest(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`{"message":{"content":"Sure! Here is the profile."}}`))

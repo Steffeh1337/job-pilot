@@ -80,6 +80,10 @@ Upload your CV on the **Profile** page and jobs get a **fit score** (0-100) you 
 
 Without Ollama you still get the skills match; the Profile page shows what is missing and how to add it.
 
+### Asking the local model
+
+The **Ask** page is a prompt box for the same local model, for things like application questions ("What is your experience with high-load systems?"). With *Use my CV as context* on, the stored CV is sent to your Ollama with the question and the model answers in the first person from it. It is told never to invent figures: if the CV doesn't state something (requests per second, team size, users), the answer carries a `[placeholder]` for you to fill in. Questions and answers are not stored or logged; the history on the page is cleared when you reload.
+
 ### Privacy
 
 - The CV is parsed in this process. PDFs and DOCX are read in memory and never written to a temp file.
@@ -120,6 +124,8 @@ Then press **Re-index jobs** on the Profile page (and **Re-read CV** if you alre
 `/api/jobs` with `status` (match, rejected, all), `source`, `reason`, `b2b=1`, `unverified=1`, `applied` (1 = only applied, 0 = hide applied), `q`, `days`, `sort` (new, fit), `min_fit`, `limit`, `offset`. With a CV uploaded, jobs carry a `fit` object.
 
 Applications: `PUT /api/jobs/{id}/application` (`status`, `applied_on`, `notes`; an empty body means applied today) and `DELETE /api/jobs/{id}/application`. Jobs carry an `application` object once tracked.
+
+Ask: `POST /api/ask` (`question`, `use_cv`) returns `{answer, used_cv}`; 503 when Ollama or a chat model isn't available.
 
 CV matching: `GET /api/profile`, `PUT /api/profile`, `DELETE /api/profile`, `POST /api/profile/cv` (multipart field `cv`), `POST /api/profile/reextract`, `GET /api/fit/status`, `POST /api/fit/sync`. `/api/matches?limit=50` is the older, simpler list.
 

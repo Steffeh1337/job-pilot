@@ -36,10 +36,12 @@ type fakeLLM struct {
 	down    error
 	chat    any // an llmProfile, or a raw string that is returned as-is
 	chatErr error
+	reply   string // what Chat returns
 
 	embedCalls [][]string
 	chatCalls  int
-	onEmbed    func() // runs in the middle of an Embed call
+	onEmbed    func()   // runs in the middle of an Embed call
+	asked      []string // the system and user text of every Chat call
 }
 
 func (f *fakeLLM) Version(context.Context) (string, error) {
@@ -100,6 +102,20 @@ func (f *fakeLLM) ChatJSON(_ context.Context, _, _, _ string, _ any, out any) er
 	}
 	b, _ := json.Marshal(f.chat)
 	return json.Unmarshal(b, out)
+}
+
+func (f *fakeLLM) Chat(_ context.Context, _, system, user string) (string, error) {
+	f.mu.Lock()
+	f.chatCalls++
+	f.asked = append(f.asked, system, user)
+	f.mu.Unlock()
+	if f.down != nil {
+		return "", f.down
+	}
+	if f.chatErr != nil {
+		return "", f.chatErr
+	}
+	return f.reply, nil
 }
 
 var chatAndEmbed = []ollama.Model{{Name: "qwen2.5:7b"}, {Name: "nomic-embed-text:latest"}}
@@ -1065,5 +1081,74 @@ func TestHighlightsAreStoredAndValidated(t *testing.T) {
 		if _, err := m.UpdateProfile(ctx, base); !errors.As(err, &bad) {
 			t.Errorf("%s: err = %v, want a validation error", name, err)
 		}
+	}
+}
+
+func TestAskUsesTheCVOnlyWhenAsked(t *testing.T) {
+	llm := &fakeLLM{models: chatAndEmbed, chat: llmProfile{}, reply: "  I led the move to Go microservices.  "}
+	m, _ := newMatcher(t, llm)
+	ctx := context.Background()
+	if _, _, err := m.Upload(ctx, "cv.txt", []byte(sampleCV)); err != nil {
+		t.Fatal(err)
+	}
+	llm.asked = nil
+
+	got, err := m.Ask(ctx, "  What did you lead?  ", true)
+	if err != nil || got != "I led the move to Go microservices." {
+		t.Fatalf("got %q, %v", got, err)
+	}
+	if len(llm.asked) != 2 || !strings.Contains(llm.asked[1], "Led the migration to Go microservices") || !strings.HasSuffix(llm.asked[1], "Question: What did you lead?") {
+		t.Errorf("the CV and the trimmed question must reach the model: %q", llm.asked)
+	}
+	if !strings.Contains(llm.asked[0], "bracketed placeholder") {
+		t.Errorf("the system prompt must forbid inventing figures: %q", llm.asked[0])
+	}
+
+	llm.asked = nil
+	if _, err := m.Ask(ctx, "What is a goroutine?", false); err != nil {
+		t.Fatal(err)
+	}
+	if len(llm.asked) != 2 || strings.Contains(llm.asked[1], "Jane") || llm.asked[1] != "What is a goroutine?" {
+		t.Errorf("without the CV, nothing from it may be sent: %q", llm.asked)
+	}
+}
+
+func TestAskProblems(t *testing.T) {
+	ctx := context.Background()
+	var unavailable *UnavailableError
+	var invalid *ValidationError
+
+	m, _ := newMatcher(t, &fakeLLM{models: chatAndEmbed, reply: "x"})
+	if _, err := m.Ask(ctx, "   ", false); !errors.As(err, &invalid) {
+		t.Errorf("blank question: %v", err)
+	}
+	if _, err := m.Ask(ctx, strings.Repeat("a", maxQuestionRunes+1), false); !errors.As(err, &invalid) {
+		t.Errorf("long question: %v", err)
+	}
+	if _, err := m.Ask(ctx, "Hello?", true); !errors.Is(err, ErrNoProfile) {
+		t.Errorf("CV context without a CV: %v", err)
+	}
+	if _, err := m.Ask(ctx, "Hello?", false); err != nil {
+		t.Errorf("a plain question needs no CV: %v", err)
+	}
+
+	llm := &fakeLLM{models: chatAndEmbed, reply: "x"}
+	m, _ = newMatcher(t, llm)
+	llm.down = &ollama.UnavailableError{Err: errors.New("connection refused")}
+	if _, err := m.Ask(ctx, "Hello?", false); !errors.As(err, &unavailable) || !strings.Contains(err.Error(), "not running") {
+		t.Errorf("Ollama down: %v", err)
+	}
+	llm.down, llm.reply = nil, "   "
+	if _, err := m.Ask(ctx, "Hello?", false); !errors.As(err, &unavailable) || !strings.Contains(err.Error(), "empty") {
+		t.Errorf("empty answer: %v", err)
+	}
+	llm.models = []ollama.Model{{Name: "nomic-embed-text:latest"}}
+	if _, err := m.Ask(ctx, "Hello?", false); !errors.As(err, &unavailable) || !strings.Contains(err.Error(), "ollama pull") {
+		t.Errorf("no chat model: %v", err)
+	}
+
+	m, _ = newMatcher(t, nil)
+	if _, err := m.Ask(ctx, "Hello?", false); !errors.As(err, &unavailable) {
+		t.Errorf("Ollama off: %v", err)
 	}
 }

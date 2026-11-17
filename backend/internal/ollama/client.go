@@ -152,16 +152,39 @@ func (c *Client) Embed(ctx context.Context, model string, inputs []string) ([][]
 // ChatJSON asks the model to answer with JSON matching schema and decodes the
 // answer into out. Temperature is 0 so the same CV gives the same profile.
 func (c *Client) ChatJSON(ctx context.Context, model, system, user string, schema any, out any) error {
+	content, err := c.chat(ctx, model, system, user, schema, 0)
+	if err != nil {
+		return err
+	}
+	content = stripFences(content)
+	if err := json.Unmarshal([]byte(content), out); err != nil {
+		return fmt.Errorf("the model did not return valid JSON: %w", err)
+	}
+	return nil
+}
+
+// Chat asks the model for a plain-text answer. The temperature is low but not
+// zero, so a reply reads naturally while staying close to what it was given.
+func (c *Client) Chat(ctx context.Context, model, system, user string) (string, error) {
+	content, err := c.chat(ctx, model, system, user, nil, 0.3)
+	return strings.TrimSpace(content), err
+}
+
+// chat is one non-streaming /api/chat call; schema, when set, constrains the
+// reply to JSON.
+func (c *Client) chat(ctx context.Context, model, system, user string, schema any, temperature float64) (string, error) {
 	req := map[string]any{
 		"model":  model,
 		"stream": false,
 		"think":  false,
-		"format": schema,
 		"messages": []map[string]string{
 			{"role": "system", "content": system},
 			{"role": "user", "content": user},
 		},
-		"options": map[string]any{"temperature": 0, "num_ctx": 8192},
+		"options": map[string]any{"temperature": temperature, "num_ctx": 8192},
+	}
+	if schema != nil {
+		req["format"] = schema
 	}
 	var resp struct {
 		Message struct {
@@ -176,13 +199,9 @@ func (c *Client) ChatJSON(ctx context.Context, model, system, user string, schem
 		err = c.do(ctx, http.MethodPost, "/api/chat", req, model, &resp)
 	}
 	if err != nil {
-		return err
+		return "", err
 	}
-	content := stripFences(resp.Message.Content)
-	if err := json.Unmarshal([]byte(content), out); err != nil {
-		return fmt.Errorf("the model did not return valid JSON: %w", err)
-	}
-	return nil
+	return resp.Message.Content, nil
 }
 
 // stripFences removes a ```json fence that some models add around JSON.

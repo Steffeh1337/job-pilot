@@ -314,3 +314,24 @@ func TestHighlightsEndpoints(t *testing.T) {
 		t.Errorf("four highlights = %d, want 400", rec.Code)
 	}
 }
+
+func TestAskEndpoint(t *testing.T) {
+	a, _, _ := matchingAPI(t)
+	post := func(body string) *httptest.ResponseRecorder {
+		return do(a, http.MethodPost, "/api/ask", strings.NewReader(body))
+	}
+	if rec := post(`not json`); rec.Code != http.StatusBadRequest {
+		t.Errorf("junk body = %d, want 400", rec.Code)
+	}
+	if rec := post(`{"question":"  "}`); rec.Code != http.StatusBadRequest {
+		t.Errorf("blank question = %d, want 400", rec.Code)
+	}
+	if rec := post(`{"question":"Tell me about yourself","use_cv":true}`); rec.Code != http.StatusNotFound {
+		t.Errorf("CV context without a CV = %d, want 404", rec.Code)
+	}
+	// The matching API has no Ollama, so a question can't be answered.
+	rec := post(`{"question":"What is a goroutine?"}`)
+	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "ollama") {
+		t.Errorf("no Ollama = %d %s, want 503 saying so", rec.Code, rec.Body)
+	}
+}

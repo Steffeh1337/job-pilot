@@ -63,7 +63,7 @@ func (m *Matcher) SuggestHighlights(ctx context.Context) ([]string, []string, er
 	}
 	model, err := m.chatModel(ctx)
 	if err != nil {
-		return nil, nil, &UnavailableError{highlightProblem(err)}
+		return nil, nil, &UnavailableError{modelProblem(err, "write highlights")}
 	}
 
 	prompt := row.CVText
@@ -72,7 +72,7 @@ func (m *Matcher) SuggestHighlights(ctx context.Context) ([]string, []string, er
 	}
 	var out llmHighlights
 	if err := m.LLM.ChatJSON(ctx, model, highlightSystem, "CV:\n<<<\n"+prompt+"\n>>>", highlightSchema, &out); err != nil {
-		return nil, nil, &UnavailableError{highlightProblem(err)}
+		return nil, nil, &UnavailableError{modelProblem(err, "write highlights")}
 	}
 
 	var kept, warnings []string
@@ -98,7 +98,9 @@ func (m *Matcher) SuggestHighlights(ctx context.Context) ([]string, []string, er
 	return kept, warnings, nil
 }
 
-func highlightProblem(err error) string {
+// modelProblem says, in words for the person using the app, why the local model
+// could not do what: write highlights, answer a question.
+func modelProblem(err error, what string) string {
 	switch {
 	case ollama.IsUnavailable(err):
 		return "Ollama is not running. Start it (make ollama) and try again."
@@ -107,7 +109,7 @@ func highlightProblem(err error) string {
 	case ollama.IsModelMissing(err):
 		return err.Error() + ". Install it and try again."
 	default:
-		return fmt.Sprintf("The local model could not write highlights (%v).", err)
+		return fmt.Sprintf("The local model could not %s (%v).", what, err)
 	}
 }
 

@@ -25,6 +25,7 @@ type LLM interface {
 	Models(ctx context.Context) ([]ollama.Model, error)
 	Embed(ctx context.Context, model string, inputs []string) ([][]float32, error)
 	ChatJSON(ctx context.Context, model, system, user string, schema any, out any) error
+	Chat(ctx context.Context, model, system, user string) (string, error)
 }
 
 // Config holds the matcher's settings.

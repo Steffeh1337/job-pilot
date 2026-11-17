@@ -19,6 +19,7 @@ type Matcher interface {
 	Upload(ctx context.Context, filename string, data []byte) (*matcher.ProfileView, []string, error)
 	Reextract(ctx context.Context) (*matcher.ProfileView, []string, error)
 	SuggestHighlights(ctx context.Context) ([]string, []string, error)
+	Ask(ctx context.Context, question string, useCV bool) (string, error)
 	UpdateProfile(ctx context.Context, p matcher.Profile) (*matcher.ProfileView, error)
 	DeleteProfile(ctx context.Context) error
 	RequestSync()
@@ -33,6 +34,7 @@ func (a *API) registerMatching(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/profile/cv", a.withMatcher(a.uploadCV))
 	mux.HandleFunc("POST /api/profile/reextract", a.withMatcher(a.reextract))
 	mux.HandleFunc("POST /api/profile/highlights", a.withMatcher(a.suggestHighlights))
+	mux.HandleFunc("POST /api/ask", a.withMatcher(a.ask))
 	mux.HandleFunc("GET /api/fit/status", a.withMatcher(a.fitStatus))
 	mux.HandleFunc("POST /api/fit/sync", a.withMatcher(a.fitSync))
 }
@@ -124,6 +126,34 @@ func (a *API) suggestHighlights(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, highlightsResponse{Highlights: nonNilStrings(bullets), Warnings: nonNilStrings(warnings)})
+}
+
+// askRequest is a question for the local model. UseCV adds the stored CV as
+// context.
+type askRequest struct {
+	Question string `json:"question"`
+	UseCV    bool   `json:"use_cv"`
+}
+
+type askResponse struct {
+	Answer string `json:"answer"`
+	UsedCV bool   `json:"used_cv"`
+}
+
+// ask answers a question with the local model. Nothing about it is stored or
+// logged.
+func (a *API) ask(w http.ResponseWriter, r *http.Request) {
+	var req askRequest
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "the body must be JSON with a question"})
+		return
+	}
+	answer, err := a.Matcher.Ask(r.Context(), req.Question, req.UseCV)
+	if err != nil {
+		a.profileError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, askResponse{Answer: answer, UsedCV: req.UseCV})
 }
 
 func (a *API) putProfile(w http.ResponseWriter, r *http.Request) {

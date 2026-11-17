@@ -1,4 +1,5 @@
 import { Navigate, NavLink, Route, Routes } from 'react-router-dom'
+import { Ask } from './pages/Ask'
 import { Jobs } from './pages/Jobs'
 import { Overview } from './pages/Overview'
 import { Profile } from './pages/Profile'
@@ -21,6 +22,7 @@ export function App() {
             Funnel
           </NavLink>
           <NavLink to="/jobs">Jobs</NavLink>
+          <NavLink to="/ask">Ask</NavLink>
           <NavLink to="/profile">Profile</NavLink>
           <NavLink to="/sources">Sources</NavLink>
         </nav>
@@ -29,6 +31,7 @@ export function App() {
         <Routes>
           <Route path="/" element={<Overview />} />
           <Route path="/jobs" element={<Jobs />} />
+          <Route path="/ask" element={<Ask />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/sources" element={<Sources />} />
           <Route path="*" element={<Navigate to="/" replace />} />

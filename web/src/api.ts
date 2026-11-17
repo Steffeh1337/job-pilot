@@ -145,6 +145,12 @@ export interface HighlightsResponse {
   warnings: string[]
 }
 
+/** A reply from the local model. */
+export interface AskResponse {
+  answer: string
+  used_cv: boolean
+}
+
 export interface ProfileResponse {
   profile: ProfileView
   warnings: string[]
@@ -239,6 +245,12 @@ export const api = {
   },
   reextract: () => request<ProfileResponse>('/api/profile/reextract', { method: 'POST' }),
   suggestHighlights: () => request<HighlightsResponse>('/api/profile/highlights', { method: 'POST' }),
+  ask: (question: string, useCv: boolean) =>
+    request<AskResponse>('/api/ask', {
+      method: 'POST',
+      body: JSON.stringify({ question, use_cv: useCv }),
+      headers: { 'Content-Type': 'application/json' },
+    }),
   saveProfile: (p: Profile) =>
     request<ProfileView>('/api/profile', {
       method: 'PUT',

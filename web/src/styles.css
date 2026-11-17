@@ -1176,3 +1176,51 @@ details.setup code {
     gap: 2px;
   }
 }
+
+/* ---------- ask the local model ---------- */
+
+.ask-form {
+  display: grid;
+  gap: 10px;
+}
+
+.ask-form textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.ask-options {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.ask-options .spacer {
+  flex: 1;
+}
+
+.exchange + .exchange {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.exchange .question {
+  font-weight: 600;
+  margin: 0 0 6px;
+  white-space: pre-wrap;
+}
+
+.exchange .answer {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.exchange .meta {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 8px;
+}

@@ -1,15 +1,52 @@
-import { useQuery } from '@tanstack/react-query'
-import { useEffect, useRef } from 'react'
-import { api, type Job } from '../api'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useRef, useState } from 'react'
+import { api, type Job, type JobsResponse } from '../api'
 import { formatSalary, locationSummary, reasonLabel, relativeTime, sourceLabel, REASON_HELP } from '../lib/format'
 import { safeUrl } from '../lib/url'
 import { ApplicationSection } from './ApplicationSection'
 import { Async } from './Async'
 import { FitSection } from './FitSection'
 
+/** Updates the viewed flag of a job in every cached list without reordering it. */
+function patchViewed(qc: ReturnType<typeof useQueryClient>, id: number, viewed: boolean) {
+  qc.setQueriesData<JobsResponse>({ queryKey: ['jobs'] }, (data) =>
+    data && { ...data, jobs: data.jobs.map((j) => (j.id === id ? { ...j, viewed } : j)) },
+  )
+}
+
 export function JobDrawer({ id, onClose }: { id: number; onClose: () => void }) {
+  const qc = useQueryClient()
   const query = useQuery({ queryKey: ['job', id], queryFn: () => api.job(id) })
   const closeRef = useRef<HTMLButtonElement>(null)
+
+  // Opening a job counts as viewing it. The list greys the row straight away but
+  // keeps its place while you read; it re-sorts, viewed jobs last, when you close.
+  // `viewed` is kept here because the job may be fetched before this call lands.
+  const [viewed, setViewed] = useState<boolean | null>(null)
+  const request = useRef<Promise<unknown>>(Promise.resolve())
+  useEffect(() => {
+    setViewed(null)
+    const done = api.markViewed(id).then(
+      () => {
+        setViewed(true)
+        patchViewed(qc, id, true)
+      },
+      () => undefined, // the job just stays unread
+    )
+    request.current = done
+    return () => void done.then(() => qc.invalidateQueries({ queryKey: ['jobs'] }))
+  }, [id, qc])
+
+  async function toggleViewed(next: boolean) {
+    await request.current
+    request.current = (next ? api.markViewed(id) : api.markUnread(id)).then(
+      () => {
+        setViewed(next)
+        patchViewed(qc, id, next)
+      },
+      () => undefined,
+    )
+  }
 
   useEffect(() => {
     closeRef.current?.focus()
@@ -40,14 +77,16 @@ export function JobDrawer({ id, onClose }: { id: number; onClose: () => void }) 
           </button>
         </header>
         <div className="drawer-body">
-          <Async query={query}>{(job) => <Details job={job} />}</Async>
+          <Async query={query}>
+            {(job) => <Details job={job} viewed={viewed ?? job.viewed} onToggleViewed={(next) => void toggleViewed(next)} />}
+          </Async>
         </div>
       </aside>
     </>
   )
 }
 
-function Details({ job }: { job: Job }) {
+function Details({ job, viewed, onToggleViewed }: { job: Job; viewed: boolean; onToggleViewed: (viewed: boolean) => void }) {
   const link = safeUrl(job.url)
   const salary = formatSalary(job.salary_min, job.salary_max, job.currency)
   return (
@@ -98,13 +137,16 @@ function Details({ job }: { job: Job }) {
         )}
       </dl>
 
-      {link && (
-        <p>
+      <p className="drawer-actions">
+        {link && (
           <a className="btn primary" href={link} target="_blank" rel="noopener noreferrer">
             Open posting ↗
           </a>
-        </p>
-      )}
+        )}
+        <button type="button" className="btn" onClick={() => onToggleViewed(!viewed)}>
+          {viewed ? 'Mark as unread' : 'Mark as viewed'}
+        </button>
+      </p>
 
       <ApplicationSection job={job} />
 

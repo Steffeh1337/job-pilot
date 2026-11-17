@@ -52,6 +52,8 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("GET /api/jobs/{id}", a.job)
 	mux.HandleFunc("PUT /api/jobs/{id}/application", a.putApplication)
 	mux.HandleFunc("DELETE /api/jobs/{id}/application", a.deleteApplication)
+	mux.HandleFunc("PUT /api/jobs/{id}/viewed", a.putViewed)
+	mux.HandleFunc("DELETE /api/jobs/{id}/viewed", a.deleteViewed)
 	mux.HandleFunc("GET /api/polls", a.polls)
 	mux.HandleFunc("GET /api/refresh", a.refreshStatus)
 	mux.HandleFunc("POST /api/refresh", a.refreshStart)
@@ -135,6 +137,8 @@ type jobView struct {
 	Fit *fit.Fit `json:"fit,omitempty"`
 	// Application is set once the person has recorded applying to the job.
 	Application *applicationView `json:"application,omitempty"`
+	// Viewed is true once the job has been opened, until it is marked unread.
+	Viewed bool `json:"viewed"`
 }
 
 func view(j *domain.Job, withDescription bool) jobView {
@@ -220,6 +224,9 @@ func (a *API) jobs(w http.ResponseWriter, r *http.Request) {
 		if ids, err = a.Store.SearchIDs(ctx, q); err == nil {
 			ranked, fits, err = a.Matcher.Rank(ctx, ids, minFit)
 		}
+		if err == nil && q.Applied != store.AppliedOnly {
+			ranked, err = a.unviewedFirst(ctx, ranked)
+		}
 		if err == nil {
 			total = len(ranked)
 			lo := min(q.Offset, len(ranked))
@@ -241,6 +248,9 @@ func (a *API) jobs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	vs, err := a.withApplications(r, withFits(views(jobs), fits))
+	if err == nil {
+		vs, err = a.withViewed(r, vs)
+	}
 	if err != nil {
 		a.fail(w, err)
 		return
@@ -293,6 +303,12 @@ func (a *API) job(w http.ResponseWriter, r *http.Request) {
 	if app, ok := apps[id]; ok {
 		v.Application = viewApplication(app)
 	}
+	viewed, err := a.Store.ViewedAmong(r.Context(), []int64{id})
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	v.Viewed = viewed[id]
 	if a.Matcher != nil {
 		fits, err := a.Matcher.Fits(r.Context(), []int64{id})
 		if err != nil {

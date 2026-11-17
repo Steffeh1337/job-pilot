@@ -91,16 +91,18 @@ func (q Search) where() (string, []any) {
 	return " WHERE " + strings.Join(where, " AND "), args
 }
 
-// order is how results are sorted: newest first, except that the tracker lists
-// the most recently applied first.
+// order is how results are sorted: newest first, with jobs already viewed
+// below the ones still to look at. The tracker is the exception: it lists the
+// most recently applied first, whether or not you opened the job again.
 func (q Search) order() string {
 	if q.Applied == AppliedOnly {
 		return " ORDER BY (SELECT applied_on FROM applications a WHERE a.job_id = jobs.id) DESC, first_seen_at DESC, id DESC"
 	}
-	return " ORDER BY first_seen_at DESC, id DESC"
+	return " ORDER BY (jobs.id IN (SELECT job_id FROM job_views)), first_seen_at DESC, id DESC"
 }
 
-// SearchIDs returns the ids of every job matching the filters, newest first,
+// SearchIDs returns the ids of every job matching the filters, newest first
+// with viewed jobs last,
 // ignoring Limit and Offset. It lets a caller rank or sort by something the
 // database doesn't know, such as fit, and then fetch only one page.
 func (s *Store) SearchIDs(ctx context.Context, q Search) ([]int64, error) {

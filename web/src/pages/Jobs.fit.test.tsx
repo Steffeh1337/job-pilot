@@ -5,7 +5,7 @@ import { Jobs } from './Jobs'
 
 const job = (id: number, title: string, fit?: Job['fit']): Job => ({
   id, source: 'remoteok', url: 'https://example.com/' + id, title, company: 'Acme', location: 'Remote', remote: true,
-  b2b: false, region_verified: true, stage: 'senior', posted_at: '2026-11-20T10:00:00Z', first_seen_at: '2026-11-20T10:00:00Z', fit,
+  b2b: false, viewed: false, region_verified: true, stage: 'senior', posted_at: '2026-11-20T10:00:00Z', first_seen_at: '2026-11-20T10:00:00Z', fit,
 })
 
 const goFit: Job['fit'] = { score: 90, band: 'strong', matched: ['Go'], missing: [] }

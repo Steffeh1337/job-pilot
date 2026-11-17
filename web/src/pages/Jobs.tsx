@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, type Job, type Status } from '../api'
@@ -218,6 +218,8 @@ export function Jobs() {
                     <li key={j.id}>
                       <JobRow
                         job={j}
+                        // The tracker lists what you applied to, all of it opened before.
+                        dim={j.viewed && q.applied !== 'only'}
                         isNew={newSince !== null && new Date(j.first_seen_at).getTime() >= newSince}
                         onOpen={() => openJob(j.id)}
                       />
@@ -236,34 +238,53 @@ export function Jobs() {
   )
 }
 
-function JobRow({ job, isNew, onOpen }: { job: Job; isNew: boolean; onOpen: () => void }) {
+function JobRow({ job, isNew, dim, onOpen }: { job: Job; isNew: boolean; dim: boolean; onOpen: () => void }) {
+  const qc = useQueryClient()
+  const unread = useMutation({
+    mutationFn: () => api.markUnread(job.id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['jobs'] }),
+  })
   const salary = formatSalary(job.salary_min, job.salary_max, job.currency)
   return (
-    <button className="job-row" onClick={onOpen}>
-      <span className="job-title">{job.title}</span>
-      <span className="job-meta">
-        <span>{job.company || 'Unknown company'}</span>
-        <span>{locationSummary(job.location, job.regions)}</span>
-        {salary && <span>{salary}</span>}
-      </span>
-      <span className="job-badges">
-        {isNew && <span className="badge new">New</span>}
-        <span className="badge">{sourceLabel(job.source)}</span>
-        {job.application && (
-          <span className={`badge ${statusTone(job.application.status)}`}>{applicationSummary(job.application)}</span>
-        )}
-        {job.b2b && <span className="badge b2b">B2B / contract</span>}
-        {job.reject_reason ? (
-          <span className="badge danger">{reasonLabel(job.reject_reason)}</span>
-        ) : (
-          !job.region_verified && <span className="badge warn">Region unverified</span>
-        )}
-      </span>
-      <span className="job-side">
-        {job.fit && <FitBadge fit={job.fit} />}
-        <span>{relativeTime(job.first_seen_at)}</span>
-      </span>
-    </button>
+    <div className={dim ? 'job-item viewed' : 'job-item'}>
+      <button className="job-row" onClick={onOpen}>
+        <span className="job-title">{job.title}</span>
+        <span className="job-meta">
+          <span>{job.company || 'Unknown company'}</span>
+          <span>{locationSummary(job.location, job.regions)}</span>
+          {salary && <span>{salary}</span>}
+        </span>
+        <span className="job-badges">
+          {dim && <span className="badge">Viewed</span>}
+          {isNew && <span className="badge new">New</span>}
+          <span className="badge">{sourceLabel(job.source)}</span>
+          {job.application && (
+            <span className={`badge ${statusTone(job.application.status)}`}>{applicationSummary(job.application)}</span>
+          )}
+          {job.b2b && <span className="badge b2b">B2B / contract</span>}
+          {job.reject_reason ? (
+            <span className="badge danger">{reasonLabel(job.reject_reason)}</span>
+          ) : (
+            !job.region_verified && <span className="badge warn">Region unverified</span>
+          )}
+        </span>
+        <span className="job-side">
+          {job.fit && <FitBadge fit={job.fit} />}
+          <span>{relativeTime(job.first_seen_at)}</span>
+        </span>
+      </button>
+      {dim && (
+        <button
+          type="button"
+          className="unread-btn"
+          disabled={unread.isPending}
+          aria-label={`Mark ${job.title} as unread`}
+          onClick={() => unread.mutate()}
+        >
+          Mark unread
+        </button>
+      )}
+    </div>
   )
 }
 

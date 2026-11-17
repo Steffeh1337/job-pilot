@@ -7,7 +7,7 @@ const applied: Application = { status: 'interviewing', applied_on: '2026-11-12',
 
 const job = (id: number, title: string, application?: Application): Job => ({
   id, source: 'remoteok', url: 'https://example.com/' + id, title, company: 'Acme', location: 'Remote', remote: true,
-  b2b: false, region_verified: true, stage: 'senior', posted_at: '2026-11-20T10:00:00Z', first_seen_at: '2026-11-20T10:00:00Z',
+  b2b: false, viewed: false, region_verified: true, stage: 'senior', posted_at: '2026-11-20T10:00:00Z', first_seen_at: '2026-11-20T10:00:00Z',
   description: 'Build things.', application,
 })
 

@@ -61,6 +61,8 @@ export interface Job {
   fit?: Fit
   /** Present once you have recorded applying to this job. */
   application?: Application
+  /** True once you have opened the job, until you mark it unread. */
+  viewed: boolean
 }
 
 export interface JobsResponse {
@@ -265,6 +267,8 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
     }),
   removeApplication: (jobId: number) => request<void>(`/api/jobs/${jobId}/application`, { method: 'DELETE' }),
+  markViewed: (jobId: number) => request<void>(`/api/jobs/${jobId}/viewed`, { method: 'PUT' }),
+  markUnread: (jobId: number) => request<void>(`/api/jobs/${jobId}/viewed`, { method: 'DELETE' }),
   fitStatus: () => getJSON<FitStatus>('/api/fit/status'),
   fitSync: () => request<FitStatus>('/api/fit/sync', { method: 'POST' }),
 }

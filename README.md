@@ -70,6 +70,12 @@ Every posting links out to the company's own site, so applying can't be automati
 - Jobs you applied to show their status in the list. The **Applied** view is your tracker: everything you applied to, latest first, even jobs a filter would hide. **Hide applied** keeps the main list to jobs you haven't dealt with.
 - It is stored in the same local database as everything else (`backend/data/jobpilot.db`) and is synced to the main file on every save, so it survives restarts and power-off. Re-running `reclassify` or refreshing the boards never touches it. **Remove** deletes the record; the job stays.
 
+## Viewed jobs
+
+Opening a job counts as viewing it. Viewed rows are greyed out and labelled *Viewed*, and the list always puts them **below** the jobs you haven't opened yet, whichever sort you use (newest or best fit), so the top of the page is what is left to look at. The row keeps its place while its details are open and drops down when you close them.
+
+Press **Mark as unread** in a job's panel, or *Mark unread* on its row, to bring it back. The Applied view is not reordered: it stays latest-applied first. Viewing is stored in the local database like everything else; it never touches the job itself.
+
 ## CV matching
 
 Upload your CV on the **Profile** page and jobs get a **fit score** (0-100) you can sort and filter by. Everything runs on this computer.
@@ -122,6 +128,8 @@ Then press **Re-index jobs** on the Profile page (and **Re-read CV** if you alre
 
 `GET /api/health`, `/api/funnel?days=7`, `/api/polls`, `/api/jobs/{id}`, and
 `/api/jobs` with `status` (match, rejected, all), `source`, `reason`, `b2b=1`, `unverified=1`, `applied` (1 = only applied, 0 = hide applied), `q`, `days`, `sort` (new, fit), `min_fit`, `limit`, `offset`. With a CV uploaded, jobs carry a `fit` object.
+
+Viewed: `PUT /api/jobs/{id}/viewed` marks a job viewed and `DELETE` marks it unread (both 204). Jobs carry `viewed`, and `/api/jobs` lists viewed jobs last.
 
 Applications: `PUT /api/jobs/{id}/application` (`status`, `applied_on`, `notes`; an empty body means applied today) and `DELETE /api/jobs/{id}/application`. Jobs carry an `application` object once tracked.
 

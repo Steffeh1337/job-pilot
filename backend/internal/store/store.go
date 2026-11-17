@@ -100,6 +100,9 @@ func migrate(db *sql.DB) error {
 	if _, err := db.Exec(applicationSchema); err != nil {
 		return err
 	}
+	if _, err := db.Exec(viewSchema); err != nil {
+		return err
+	}
 	var n int
 	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('jobs') WHERE name = 'region_verified'`).Scan(&n); err != nil {
 		return err
